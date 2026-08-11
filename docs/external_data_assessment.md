@@ -248,8 +248,24 @@ Official nationality-by-month arrivals remain a high-priority source-market pane
 they must retain their own border-arrival definition and cannot silently replace the TÜİK departing
 visitor target.
 
-## Evidence cutoff
+No accepted source-country arrivals/digital-intent panel was available for the final study. The
+candidate sources lack either compatible target semantics, historical forecast-origin vintages,
+adequate coverage, or a reproducible extraction/license path. Country-panel results are therefore
+excluded rather than fabricated.
 
-The core target ends in December 2025. Although some external sources publish 2026 observations,
-they are not 2026 target outcomes and do not create an external-validation sample. No 2026 tourism
-forecast accuracy or validation result is claimed or fabricated.
+## Final evidence boundary
+
+The monthly core target ends in December 2025. A later official, definition-consistent target is
+available only as a quarter aggregate: TÜİK release 58142 reports 9,258,129 departing visitors for
+2026-Q1, while release 54155 reports 9,121,152 for 2025-Q1 and exactly matches the supplied monthly
+sum. Run `external_2026q1_20260811T171249Z_71f005f4` freezes these public values and scores summed
+January-March forecasts from a 2025-12-31 origin with targets available through 2025-09. It reports
+quarter absolute error and APE only; no monthly 2026 accuracy or significance is inferred.
+
+The final licensed GTD run is `gtd_20260811T172334Z_6527a1fb` (source `63a7b0a`). Across nine
+definitions and six lags, three high-severity terms have nominal p<0.05 but none survives the
+54-test BH correction (minimum adjusted p=0.615394). All nine B4 variants improve MAE by
+5.10%-7.68% but worsen RMSE by 1.63%-3.45%; snapshot-vintage and coverage limits prevent an
+operational claim. Required citation: START (National Consortium for the Study of Terrorism and
+Responses to Terrorism). (2022). *Global Terrorism Database, 1970–2020* [data file].
+https://www.start.umd.edu/data-tools/GTD. Copyright University of Maryland 2022.

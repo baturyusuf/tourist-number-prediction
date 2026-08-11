@@ -1,8 +1,8 @@
 check,value
-path,C:\Users\Yusuf\Documents\GitHub\tourist-number-prediction\data\raw\turizm_kisi_Reel_HICP_Trend.csv
+path,data/raw/turizm_kisi_Reel_HICP_Trend.csv
 sha256,a7885fb0e1ed5de7d64ae180733effc0baebad1e4842ef6bca467466b5b538e5
 byte_count,6824
-encoding,utf-8-sig
+encoding,ASCII (UTF-8 compatible; no BOM)
 delimiter,"','"
 row_count,216
 column_count,5

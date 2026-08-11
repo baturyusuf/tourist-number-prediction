@@ -20,8 +20,9 @@
   labeled observation-availability sensitivity.
 - Froze metric support semantics: pooled full-support metrics score every evaluable model forecast;
   pooled paired metrics and seasonal-naive skill use the exact matched model/baseline rows. Macro
-  fold means are labeled separately. Missing April-June 2020 targets consequently remove
-  April-June 2021 only from lag-12 paired comparisons, not from another model's full support.
+  fold means are labeled separately. The release-aware seasonal-naive model recursively projects
+  an unavailable reference from earlier observed seasons without changing the raw Q2 2020 gaps;
+  the current validated run therefore retains 129 paired rows per model and protocol.
 
 ## 2026-08-11 — official-source provenance and external-data gate
 
@@ -44,8 +45,43 @@
 - Recorded GTTAC GRID, ACLED, and UCDP as non-interchangeable post-2020 security alternatives and
   Google Ads/Wikimedia/GDELT as differently scoped digital-attention alternatives. None is silently
   spliced into an existing variable.
-- Confirmed the evidence cutoff: the supplied target ends at 2025-12. No 2026 target validation,
-  error metric, significance claim, or external-validation result was calculated or inferred.
+- Confirmed the initial evidence cutoff: the supplied monthly target ends at 2025-12. This was
+  later extended only by the frozen official 2026-Q1 aggregate described below; no monthly 2026
+  actual vector was inferred.
+
+## 2026-08-11 — final model, ablation, and GTD evidence
+
+- Registered the clean primary run and retained seasonal naive as the fixed-origin MAE benchmark.
+  Rolling one-step ridge B0 has 7.86% pooled MAE skill, but paired uncertainty includes zero and the
+  gain reverses during normalization; it is not a stable overall winner.
+- Completed snapshot-vintage B1/B2/B5 ablations. Each slightly worsens MAE versus B0 and each
+  block-bootstrap interval spans zero; no incremental REER/HICP value is claimed.
+- Registered GTD run `gtd_20260811T172334Z_6527a1fb` at source SHA `63a7b0a`. It covers nine
+  definitions and lags 0, 1, 2, 3, 6, and 12. Three high-severity lag coefficients have nominal
+  p<0.05, but none survives family-wide BH adjustment (minimum adjusted p=0.615394).
+- All nine GTD B4 variants improve MAE by 5.10%-7.68% with block-bootstrap absolute-loss intervals
+  below zero, while RMSE worsens by 1.63%-3.45%. Results remain retrospective snapshot
+  sensitivities rather than operational forecasts.
+- Spatial distances use haversine calculations from manually curated WGS84 points for Istanbul,
+  Antalya, Muğla, İzmir, and Nevşehir/Cappadocia. The points are neither authoritative boundaries
+  nor complete tourism geography.
+- Required GTD citation: START (National Consortium for the Study of Terrorism and Responses to
+  Terrorism). (2022). *Global Terrorism Database, 1970–2020* [data file].
+  https://www.start.umd.edu/data-tools/GTD. Copyright University of Maryland 2022.
+
+## 2026-08-11 — frozen official 2026-Q1 holdout
+
+- Froze TÜİK releases 58142 (2026-Q1 actual 9,258,129) and 54155 (2025-Q1 total 9,121,152, exactly
+  matching the supplied January-March sum) with release/access metadata and evidence checksums.
+- Registered `external_2026q1_20260811T171249Z_71f005f4`: origin 2025-12-31, target available
+  through 2025-09, and no tuning on 2026 outcomes.
+- Seasonal naive forecasts 9,121,152, for signed error −136,977, absolute error 136,977, and APE
+  1.4795%; it has the lowest quarter absolute error among the frozen shortlist.
+- Scoring is quarter-only. Monthly MAE/RMSE/R² and a quarter interval are withheld because monthly
+  actuals and a defensible error-dependence model were not independently archived.
+- The local Instagram workbook and undocumented `TREND` remain rejected. The requested
+  source-country panel remains unavailable because no accepted aligned origin-vintage source was
+  obtained.
 
 Open items are maintained in `PROGRESS.md`; methodological choices and rejected alternatives are
 maintained in `DECISIONS.md`.

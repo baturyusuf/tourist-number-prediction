@@ -5,6 +5,70 @@ Protocols are separate; values from incompatible tasks must not be compared as o
 `pooled_full_*` reports every evaluable model target. `pooled_paired_*` and skill use the exact
 model/seasonal-naive common support. Macro-fold quantities remain in the CSV artifact.
 
+The primary conclusions from `run_20260811T162732Z_6bbfe89e` are unchanged: seasonal naive has the
+lowest fixed-origin 12-month pooled MAE (957,226). Rolling one-step ridge B0 reports 7.86% pooled
+MAE skill, but its paired uncertainty interval includes zero and performance is regime dependent.
+Snapshot-vintage B1/B2/B5 ablations do
+not improve MAE over B0 in `ablation_20260811T165312Z_69334f2b`, and all paired bootstrap
+intervals span zero.
+
+## Fixed-origin 12-month ex ante
+
+Seasonal naive is the selected reference and lowest-MAE model: 957,226 over 129 evaluable targets
+from 11 annual origins. No model establishes positive MAE skill in this operational protocol.
+The complete model rows appear in the protocol-preserving table below.
+
+## Rolling one-step ex ante
+
+Ridge B0 has the lowest pooled MAE (825,882 versus 896,358 for seasonal naive), but its 7.86%
+point skill is not robust to the paired forecast-comparison tests or the latest normalization
+regime. It is therefore a qualified result, not a replacement for the mandatory benchmark.
+
+## Conditional/ex-post
+
+No conditional leaderboard is published. No accepted feature had a credible realized-future path
+that could support this separate task, and conditional scores are never mixed into the ex-ante
+table.
+
+## Official 2026-Q1 quarterly holdout
+
+Run `external_2026q1_20260811T171249Z_71f005f4` uses a 2025-12-31 origin, target availability
+through 2025-09, and no 2026 tuning. Only the official quarter total is scored.
+
+| model | Q1 forecast | official Q1 actual | signed error | absolute error | APE |
+|---|---:|---:|---:|---:|---:|
+| seasonal naive | 9,121,152 | 9,258,129 | −136,977 | 136,977 | 1.4795% |
+| theta | 9,091,751.67 | 9,258,129 | −166,377.33 | 166,377.33 | 1.7971% |
+| STL-ARIMA(1,1,1) | 9,655,879.36 | 9,258,129 | +397,750.36 | 397,750.36 | 4.2962% |
+| ETS Holt-Winters | 9,742,985.15 | 9,258,129 | +484,856.15 | 484,856.15 | 5.2371% |
+| seasonal moving average (3) | 8,770,936 | 9,258,129 | −487,193 | 487,193 | 5.2623% |
+
+This single quarterly holdout supports only a narrow external check. Monthly actuals were not
+independently archived, so monthly metrics and quarter intervals are not reported.
+
+## GTD common-sample sensitivity
+
+Final run `gtd_20260811T172334Z_6527a1fb` evaluates nine definitions on 69 common one-step months.
+Every B4 variant improves MAE versus B0 by 5.10%-7.68%, with 12-month block-bootstrap absolute-loss
+intervals below zero, but every variant worsens RMSE by 1.63%-3.45%. The best MAE point estimate is
+the prespecified complete-case high-severity definition: B4 MAE 830,673.87 versus B0 899,756.68
+(7.6779% skill), mean absolute-loss difference −69,082.81, 95% interval
+[−181,386.59, −37,128.98], and B4 RMSE 1,387,763.30 versus B0 1,365,442.45 (−1.6347% skill).
+Across nine definitions × six lags, high-severity lags 1, 2, and 6 have nominal p-values 0.013041,
+0.049795, and 0.031822, but none survives the 54-test BH correction (minimum adjusted p=0.615394).
+These are retrospective licensed sensitivities, not entries in the primary operational leaderboard.
+
+## Source-country panel extension
+
+Not estimable from the accepted inputs. A definition-consistent country-month arrival target and
+historically archived, forecast-origin-vintaged digital-intent panel were unavailable; no blank or
+fabricated leaderboard rows are reported.
+
+## Complete ex-ante model table
+
+The protocol column below keeps fixed-origin and rolling one-step results distinguishable. Values
+across protocols are not ranked against one another.
+
 | protocol                 | model                               |   folds |   pooled_full_n |   pooled_full_mae |   pooled_full_rmse |   pooled_full_smape |   pooled_paired_n |   pooled_paired_mae |   pooled_paired_seasonal_naive_mae |   pooled_paired_mae_skill_vs_seasonal_naive | pooled_full_interval_95_coverage   |
 |:-------------------------|:------------------------------------|--------:|----------------:|------------------:|-------------------:|--------------------:|------------------:|--------------------:|-----------------------------------:|--------------------------------------------:|:-----------------------------------|
 | fixed_origin_12m_ex_ante | seasonal_naive                      |      11 |             129 |  957226           |        1.44829e+06 |             30.0058 |               129 |    957226           |                             957226 |                                      0      | 0.9380                             |

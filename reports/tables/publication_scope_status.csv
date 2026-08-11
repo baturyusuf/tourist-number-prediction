@@ -1,0 +1,13 @@
+run_id,deliverable,status,artifact,evidence_boundary
+run_20260811T162732Z_6bbfe89e,dataset_and_missingness,completed,reports/tables/dataset_summary.csv; reports/tables/data_quality_summary.csv,Audited supplied snapshot; the three Q2-2020 target months remain missing.
+run_20260811T162732Z_6bbfe89e,rolling_origin_model_comparison,completed,reports/tables/publication_metrics_overall_full_support.csv,Fixed-origin and one-step ex-ante protocols are reported separately.
+run_20260811T162732Z_6bbfe89e,forecast_comparison_uncertainty,completed,reports/tables/publication_paired_comparisons_vs_seasonal_naive.csv,Paired DM/HAC and moving-block bootstrap comparisons use seasonal-naive support.
+run_20260811T162732Z_6bbfe89e,scaled_error_summary,completed,reports/tables/publication_macro_fold_scaled_metrics.csv,MASE and RMSSE use explicit unweighted macro means of fold-specific scales.
+legacy_2025_reproduction,legacy_2025_reproduction,completed_sensitivity,results/reproduction_metrics.csv,Observation-availability legacy comparison; not the operational release-delay protocol.
+external_2026q1_20260811T171249Z_71f005f4,2026_external_validation,completed_at_quarterly_aggregate_only,reports/tables/publication_2026q1_external_validation.csv,Same-definition official Q1 total; monthly 2026 accuracy is not inferred.
+ablation_20260811T165312Z_69334f2b,macroeconomic_ablation,completed_snapshot_vintage_sensitivity,reports/tables/model_ablation_snapshot_vintage.csv,REER/HICP issue-date vintages are unknown; this is not confirmatory operational evidence.
+gtd_20260811T172334Z_6527a1fb,gtd_common_sample,completed_retrospective_sensitivity,reports/tables/gtd_predictive_common_sample.csv,Aggregate-only 2008-2020 licensed-data analysis; GTD issue dates are unavailable.
+run_20260811T162732Z_6bbfe89e,source_country_arrivals_and_digital_intent_panel,not_estimable_from_available_inputs,,"No definition-consistent, archived country-month target and origin-vintage intent panel was available."
+run_20260811T162732Z_6bbfe89e,conditional_or_ex_post_leaderboard,not_run,,No credible realized-future exogenous path was accepted; an empty track is not mixed with ex-ante results.
+run_20260811T162732Z_6bbfe89e,shap_ale_or_pdp,not_applicable_to_selected_evidence,,No tree model established robust benchmark skill; post-hoc importance would not supply causal evidence.
+run_20260811T162732Z_6bbfe89e,security_event_map,not_published_by_license_design,,"The repository publishes aggregate GTD sensitivities, not event locations or reconstructable derivatives."

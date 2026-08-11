@@ -50,8 +50,10 @@ reproduction, not operational validation.
 
 Standalone accuracy uses every observed target/model forecast pair. Seasonal-naive skill uses the
 exact rows shared by that model and the seasonal-naive comparator. Pooled observation-weighted and
-macro-fold-weighted quantities are named separately. Lag-12 support disappears for April-June 2021
-after the Q2 2020 target gap, but other models can still forecast those months.
+macro-fold-weighted quantities are named separately. In the current implementation, an unavailable
+lag-12 seasonal reference is recursively projected from earlier observed seasons inside the model;
+the raw target remains missing and unchanged. The validated run therefore retains 129 paired rows
+per model and protocol, while the general support distinction remains explicit for future runs.
 
 ## D009 - registry artifacts are immutable and preliminary rows remain visible
 
@@ -60,8 +62,37 @@ configuration checksum, package versions, and source-tree state. The 28 pre-mile
 preserved but explicitly marked `provenance_incomplete_pre_milestone`; their mutable aliases and
 intake-commit SHA cannot substantiate current claims.
 
-## D010 - no 2026 validation is inferred
+## D010 - 2026 validation is quarterly and frozen
 
-The target ends at 2025-12. Later-dated external covariates do not create realized tourism
-outcomes. Any 2026 forecast remains prospective and unscored until a definition-consistent
-official target vintage is released and frozen.
+TÜİK release 58142 supplies the definition-consistent 2026-Q1 departing-visitors total of
+9,258,129; release 54155 reports 9,121,152 for 2025-Q1, exactly matching the supplied January-March
+sum. Run `external_2026q1_20260811T171249Z_71f005f4` forecasts from 2025-12-31 using targets only
+through 2025-09 and performs no 2026 outcome tuning. January-March predictions are summed and scored
+only against the quarter total. Monthly MAE/RMSE/R² and aggregate intervals are withheld because
+independently archived monthly actuals and defensible monthly-error dependence are unavailable.
+
+## D011 - GTD evidence is aggregate, multiplicity-adjusted, and non-operational
+
+Run `gtd_20260811T172334Z_6527a1fb` (source SHA `63a7b0a`) uses nine definitions and incident lags
+0, 1, 2, 3, 6, and 12 with HAC inference and one Benjamini-Hochberg family of 54 tests. High-severity
+lags 1, 2, and 6 have nominal p-values 0.013041, 0.049795, and 0.031822, respectively, but none is BH
+significant (minimum adjusted p=0.615394). All nine B4 variants improve common-sample MAE by
+5.10%-7.68% with block-bootstrap absolute-loss intervals below zero, while RMSE worsens by
+1.63%-3.45%. This loss dependence, the
+final retrospective snapshot, assumed reporting delay, and end-2020 coverage preclude an
+operational or causal claim.
+
+Spatial sensitivity uses manually curated WGS84 points for Istanbul, Antalya, Muğla, İzmir, and
+Nevşehir/Cappadocia and haversine distance. These points are neither authoritative administrative
+boundaries nor a complete representation of Türkiye's tourism geography. Raw GTD rows remain
+restricted. Required citation: START (National Consortium for the Study of Terrorism and Responses
+to Terrorism). (2022). *Global Terrorism Database, 1970–2020* [data file].
+https://www.start.umd.edu/data-tools/GTD. Copyright University of Maryland 2022.
+
+## D012 - snapshot macro blocks do not improve MAE
+
+Run `ablation_20260811T165312Z_69334f2b` evaluates B1, B2, and B5 using lagged REER/HICP values from
+a retrospective snapshot whose historical extraction vintage is unknown. Relative to ridge B0,
+their paired MAE changes are −0.39%, −0.77%, and −1.15% skill, respectively, and all
+block-bootstrap intervals include zero.
+They remain labeled snapshot-vintage sensitivities rather than confirmatory feature gains.

@@ -16,18 +16,23 @@ Updated: 2026-08-11
 - [x] Baseline, statistical, regularized/tree-model, registry, interval, and comparison code
 - [x] Instagram rejection, GTD license/schema assessment, and open alternative-source review
 - [x] Definition-consistent April-June 2020 replacement investigation (none identified; retain missing)
+- [x] Clean-source rolling one-step and fixed-origin baseline/statistical/ML leaderboards
+- [x] Snapshot-vintage B1/B2/B5 ablations with paired uncertainty
+- [x] Licensed aggregate GTD robustness run with nine definitions, six lags, BH adjustment,
+  five-center haversine sensitivity, and B4-versus-B0 common-sample forecasts
+- [x] Frozen official TÜİK 2026-Q1 quarter-total external validation without monthly reconstruction
+- [x] Publication tables/figures and revised manuscript sections
 
-## In progress
+## Completed scope limitations
 
-- [ ] Rolling-origin statistical/ML runs and verified leaderboards
-- [ ] Publication comparisons, final tables/figures, and revised manuscript sections
+- [x] Rejected undocumented `TREND` and mismatched Instagram inputs from confirmatory models
+- [x] Withheld unavailable 2026 monthly accuracy, country-panel analysis, and causal claims
 
-## Pending or data-limited
+## Excluded or data-limited
 
-- [ ] Source-country arrivals/digital-intent panel feasibility
-- [ ] 2026 untouched external validation (only after an official definition-consistent target exists)
-- [ ] GTD common-sample ablation and spatial-risk analysis
-- [ ] Final manuscript sections after results stabilize
+- [ ] Source-country arrivals/digital-intent panel: no accepted aligned origin-vintage source
+- [ ] Monthly 2026 validation: only an official Q1 aggregate is frozen
+- [ ] Post-2020 GTD continuation: no definition- and license-compatible bridge was accepted
 
-No unavailable result, source identifier, statistical significance, or external validation claim is
-treated as completed.
+Completed items correspond to hashed, registered artifacts. Unavailable monthly/country-panel
+results and multiplicity-adjusted GTD significance are not inferred.

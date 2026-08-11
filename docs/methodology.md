@@ -21,6 +21,9 @@
   but is not labeled operational ex-ante.
 - **Conditional/ex-post:** may consume realized future exogenous paths, but is stored and ranked
   separately and cannot be described as an ex-ante forecast.
+- **Frozen 2026-Q1 external holdout:** fixes the origin at 2025-12-31, masks target history after
+  2025-09 under the three-month rule, sums January-March forecasts, and scores them only against
+  TÜİK's official quarter total. No 2026 outcome is used for model selection or tuning.
 
 Folds are expanding-window and time ordered. Random splitting and shuffling are prohibited. Model
 and feature selection use only inner time-series folds. The 2025 legacy period is reported after
@@ -65,17 +68,24 @@ unreliable during very low-volume shock months.
 - **Macro-fold metrics** average fold-level scores and weight folds equally; they are labeled
   `macro_fold_*` because they can differ materially from pooled results when fold sizes differ.
 
-The support distinction is material: missing target observations in April-June 2020 also remove
-April-June 2021 from a lag-12 seasonal-naive comparator, although another model may still produce
-valid forecasts for those months. Restricting all standalone model metrics to seasonal-naive
-support would discard those otherwise evaluable forecasts. A standalone full-support
-seasonal-naive result and `pooled_paired_seasonal_naive_*` are therefore different estimands and
-may have different observation counts, date ranges, and values; the latter can also vary by model
-when model forecast support differs.
+The support distinction remains part of the metric contract. In the current validated run, the
+seasonal-naive implementation recursively projects an unavailable lag-12 reference from earlier
+observed seasons inside the model, without filling the raw April-June 2020 target. This preserves
+129 full and paired forecast rows per model in both protocols. A future model or run can still have
+different forecast support, so standalone `pooled_full_*` accuracy and model-specific
+`pooled_paired_*` comparison statistics remain separately labeled.
 
-Where intervals exist, empirical coverage, mean width, and Winkler score are reported. Shortlisted
-model comparisons use autocorrelation-aware Diebold-Mariano tests and moving-block bootstrap
-intervals; small numerical differences are not called meaningful without uncertainty evidence.
+Where intervals exist, empirical coverage, mean width, and Winkler score are reported. Interval
+construction is model-specific: several simple baselines use a normal approximation based on
+finite in-sample residual dispersion, while supported statistical models use their fitted-model
+forecast intervals. These are uncalibrated retrospective diagnostics, not interchangeable
+probabilistic forecasts. Shortlisted point-forecast comparisons use autocorrelation-aware
+Diebold-Mariano tests and moving-block bootstrap intervals; small numerical differences are not
+called meaningful without uncertainty evidence.
+
+The 2026-Q1 holdout has one official quarter-total actual, not three independently archived monthly
+actuals. It therefore reports quarter absolute error and APE only. Monthly MAE, RMSE, R², and a
+quarter interval derived from unidentified monthly-error dependence are intentionally omitted.
 
 ## Feature availability
 
@@ -96,9 +106,21 @@ compatible bridge is validated; post-coverage months are never filled with zero.
 `TREND` snapshot and Instagram workbook are excluded from confirmatory models. Rejected datasets
 remain in the research record.
 
+The final GTD association family contains nine prespecified definitions × lags 0, 1, 2, 3, 6, and
+12, with HAC standard errors and Benjamini-Hochberg adjustment across all 54 tests. The 100-km
+sensitivity uses manually curated WGS84 points for Istanbul, Antalya, Muğla, İzmir, and
+Nevşehir/Cappadocia and haversine distance. Point locations are not authoritative administrative
+boundaries and do not exhaust Türkiye's tourism geography. The complete-case high-severity
+sensitivity requires `nkill + nwound >= 10`; partial casualties remain unknown. Predictive B4
+comparisons use a retrospective final GTD snapshot and assumed reporting delay and are never called
+operational or causal.
+
 ## Evidence boundary
 
-The supplied target ends in December 2025. No definition-consistent 2026 target vintage was
-supplied or incorporated, so the repository does not claim an untouched 2026 validation, 2026
-forecast accuracy, or statistical significance based on 2026 outcomes. Such validation remains
-future work contingent on an official release and a frozen pre-outcome pipeline.
+The supplied monthly target ends in December 2025. TÜİK releases 58142 and 54155 provide
+definition-consistent Q1 totals for 2026 and 2025; the latter exactly matches the supplied
+January-March 2025 sum. Run `external_2026q1_20260811T171249Z_71f005f4` freezes those public
+aggregates and evaluates a shortlist designed without 2026 outcomes. This is a valid quarterly
+external holdout but not monthly validation, repeated-origin evidence, or a significance test.
+The requested source-country panel remains unavailable because no accepted source supplies aligned
+definitions and historical forecast-origin vintages.

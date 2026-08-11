@@ -45,16 +45,28 @@ is missing.
 | `macro_fold_*` | Unweighted mean of the named fold-level metric; folds, rather than forecast rows, receive equal weight |
 | `bias` | Mean forecast minus actual; positive means over-forecasting |
 
-The support labels prevent silent loss of valid model forecasts. Because the source target is
-missing in April-June 2020, lag-12 seasonal naive is unavailable in April-June 2021. Those 2021
-months remain in `pooled_full_*` metrics for models that can forecast them, but not in paired
-seasonal-naive comparisons.
+The support labels prevent silent loss of valid model forecasts. The validated seasonal-naive
+model recursively projects any unavailable seasonal reference from earlier observed seasons; it
+does not fill or overwrite the raw target. Consequently, the current run has 129 full and paired
+rows per model and protocol, while both support fields remain mandatory.
 
 The standalone 2025 reproduction uses protocol label
 `legacy_2025_observation_availability_fixed_origin`. It assumes the complete 2024 target vector is
 available at the 31 December 2024 origin and must not be interpreted as the three-month-delay
 confirmatory operational protocol.
 
-The dictionary contains no realized target after 2025-12. Any 2026 forecast row must therefore
-retain missing realized-error fields until a definition-consistent official target is released and
-frozen; it cannot be reported as validated performance.
+## Aggregate external-validation fields
+
+| Field | Definition |
+|---|---|
+| `forecast_period` | `2026-Q1`; January-March predictions are aggregated before scoring |
+| `actual_granularity` | `official_quarter_total_only`; no monthly 2026 actual vector is inferred |
+| `quarter_forecast` | Sum of the three monthly point forecasts |
+| `official_quarter_actual` | TÜİK release 58142 total: 9,258,129 departing visitors |
+| `quarter_error_forecast_minus_actual` | Signed quarter forecast minus official total |
+| `quarter_absolute_error` | Absolute quarter-total error |
+| `quarter_absolute_percentage_error` | `100 × quarter_absolute_error / official_quarter_actual` |
+| `interval_status` | Omitted because defensible monthly-error dependence for aggregation is unavailable |
+
+The monthly dictionary still contains no realized target after 2025-12. The only scored 2026
+outcome is the frozen official Q1 aggregate, so monthly MAE/RMSE/R² remain unavailable.

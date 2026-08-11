@@ -44,6 +44,15 @@ series: https://yigm.ktb.gov.tr/Eklenti/81939%2C3103turizmistatistikleri2020-4pd
 reuse of its website, publication, and database data with attribution:
 https://www.tuik.gov.tr/Kurumsal/Yasal_Uyari.
 
+### Frozen 2026-Q1 aggregate holdout
+
+TÜİK release 58142, published 2026-04-30, reports 9,258,129 total departing visitors for 2026-Q1:
+https://veriportali.tuik.gov.tr/tr/press/58142. Release 54155 reports 9,121,152 for 2025-Q1,
+exactly matching the supplied January-March monthly sum and confirming the definition bridge:
+https://veriportali.tuik.gov.tr/tr/press/54155. Both pages were accessed 2026-08-11 and frozen in
+run `external_2026q1_20260811T171249Z_71f005f4`. Only aggregate public values and release metadata
+are stored; reproduction requires no network access. No monthly 2026 actuals are inferred.
+
 ### Real effective exchange rate
 
 `USD` is the TCMB CPI-based real effective exchange-rate developed-country subindex, currently
@@ -113,3 +122,10 @@ redistribution, and requires citation: https://www.start.umd.edu/gtd-terms. The 
 ends in 2020, with January-June 2021 offered separately:
 https://www.start.umd.edu/download-global-terrorism-database. Raw events, codebook, and auxiliary
 materials remain outside Git.
+
+Final aggregate run `gtd_20260811T172334Z_6527a1fb` uses nine definitions, lags 0/1/2/3/6/12,
+family-wide BH adjustment, and five manually curated WGS84 tourism-center points with haversine
+distance. Point coordinates are neither authoritative administrative boundaries nor complete
+tourism geography. Required citation: START (National Consortium for the Study of Terrorism and
+Responses to Terrorism). (2022). *Global Terrorism Database, 1970–2020* [data file].
+https://www.start.umd.edu/data-tools/GTD. Copyright University of Maryland 2022.

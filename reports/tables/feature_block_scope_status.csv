@@ -1,0 +1,9 @@
+feature_block,status,reason
+B0,completed,target history and calendar reference
+B1,completed_sensitivity,REER snapshot vintage is not archived
+B2,completed_sensitivity,HICP snapshot vintage is not archived
+B3,not_estimable,legacy digital-intent series lacks query and vintage provenance
+B4,separate_common_sample,GTD ends in 2020 and is evaluated separately
+B5,completed_sensitivity,joint REER/HICP snapshot-vintage block
+B6,not_estimable,no accepted historically aligned digital-intent panel
+B7,not_estimable,accepted inputs do not share a comparable full sample

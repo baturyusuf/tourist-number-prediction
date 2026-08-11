@@ -1,7 +1,7 @@
 PYTHON ?= python
 FINAL_FORECAST_PATH ?= results/runs/run_20260811T162732Z_6bbfe89e/forecasts/rolling_origin_forecasts.csv
 
-.PHONY: setup test audit reproduce-baselines backtest ablation external-data-assessment external-validation-2026q1 final-results reproduce lint
+.PHONY: setup test audit reproduce-baselines backtest ablation gtd-robustness external-data-assessment external-validation-2026q1 final-results reproduce lint
 
 setup:
 	$(PYTHON) -m pip install -r requirements.lock
@@ -24,6 +24,9 @@ backtest:
 
 ablation:
 	$(PYTHON) scripts/run_ablation.py
+
+gtd-robustness:
+	$(PYTHON) scripts/analyze_gtd_robustness.py
 
 external-data-assessment:
 	$(PYTHON) scripts/assess_external_data.py
