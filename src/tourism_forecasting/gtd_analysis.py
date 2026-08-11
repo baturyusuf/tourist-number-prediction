@@ -521,7 +521,7 @@ def build_gtd_robustness_artifacts(
     ].replace(0, np.nan)
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 7), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(9, 7), sharex=True, layout="none")
     axes[0].plot(annual["year"], annual["broad_incidents"], marker="o", label="Broad GTD")
     axes[0].plot(
         annual["year"],
@@ -536,7 +536,6 @@ def build_gtd_robustness_artifacts(
     axes[1].set_ylabel("Known coordinates (%)")
     axes[1].set_xlabel("Year")
     axes[1].set_ylim(0, 105)
-    fig.set_layout_engine(None)
     fig.subplots_adjust(bottom=0.23)
     fig.text(
         0.01,
@@ -556,7 +555,7 @@ def build_gtd_robustness_artifacts(
         "successful_only": "Successful only",
         "within_100km_tourism_centers": "Within 100 km of five centers",
     }
-    fig, axis = plt.subplots(figsize=(10, 5.8))
+    fig, axis = plt.subplots(figsize=(10, 5.8), layout="none")
     for definition, label in selected_associations.items():
         values = association.loc[association["definition"].eq(definition)].sort_values(
             "incident_lag_months"
@@ -579,7 +578,6 @@ def build_gtd_robustness_artifacts(
     axis.set_ylabel("Approximate visitor difference per incident (%)")
     axis.set_title("GTD lag-response associations (descriptive, noncausal)", loc="left")
     axis.legend(frameon=False, ncol=2)
-    fig.set_layout_engine(None)
     fig.subplots_adjust(bottom=0.28)
     fig.text(
         0.01,

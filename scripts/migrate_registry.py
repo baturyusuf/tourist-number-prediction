@@ -52,6 +52,12 @@ def migrate() -> int:
             "Run invalidated before publication: the global constrained-layout engine rejected "
             "the reserved footer space; corrected clean-source rerun retained separately",
         ),
+        "gtd_20260811T172103Z_857bb696": (
+            "superseded_publication_figure_layout_engine",
+            "Run invalidated before publication: disabling the layout engine after figure "
+            "creation restored the global constrained engine; corrected clean-source rerun "
+            "retained separately",
+        ),
     }
     invalid_gtd = frame["run_id"].isin(invalid_gtd_reasons)
     for index in frame.index[invalid_gtd]:
