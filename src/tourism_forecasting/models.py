@@ -275,8 +275,14 @@ def recursive_target_history_forecast(
     target_column: str = "target_original_with_missing",
     date_column: str = "date",
     feature_spec: FeatureSpec | None = None,
+    exogenous_lags: Mapping[str, int] | None = None,
 ) -> pd.Series:
-    """Fixed-origin recursive forecast using only target history and known calendar features."""
+    """Recursive forecast using target history and release-safe lagged exogenous inputs.
+
+    Future exogenous values are never inserted. Consequently, a forecast is produced only while
+    every requested lag can be sourced from rows already present at the forecast origin. The
+    primary use for exogenous blocks is the rolling one-step snapshot-vintage sensitivity.
+    """
 
     working = history.sort_values(date_column, kind="stable").copy()
     assert_monthly_continuity(working, date_column)
@@ -302,6 +308,7 @@ def recursive_target_history_forecast(
             working,
             target_column=target_column,
             date_column=date_column,
+            exogenous_lags=exogenous_lags,
             spec=feature_spec,
         )
         row = built.loc[[built.index[-1]], model.feature_columns]

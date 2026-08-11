@@ -14,7 +14,9 @@ from tourism_forecasting.backtest import (
 )
 from tourism_forecasting.config import load_project_config
 from tourism_forecasting.data import assert_monthly_continuity, load_core_data, sha256_file
+from tourism_forecasting.external_data import assess_external_data_files
 from tourism_forecasting.features import FeatureSpec
+from tourism_forecasting.final_artifacts import build_publication_artifacts
 from tourism_forecasting.paths import resolve_from_root
 from tourism_forecasting.registry import (
     append_experiment,
@@ -206,6 +208,10 @@ def backtest_workflow(*, include_ml: bool = True, tune_ml: bool = True) -> list[
     results = resolve_from_root("results")
     combined.fold_metrics.to_csv(results / "fold_metrics.csv", index=False)
     combined.leaderboard.to_csv(results / "leaderboard.csv", index=False)
+    (results / "forecasts").mkdir(parents=True, exist_ok=True)
+    combined.forecasts.to_csv(results / "forecasts" / "rolling_origin_forecasts.csv", index=False)
+    combined.fold_metrics.to_csv(results / "rolling_origin_fold_metrics.csv", index=False)
+    combined.leaderboard.to_csv(results / "rolling_origin_leaderboard.csv", index=False)
 
     markdown = (
         """# Validated forecasting leaderboard
@@ -333,5 +339,15 @@ def reproduce_workflow(*, include_ml: bool = True) -> list[Path]:
     artifacts = []
     artifacts.extend(audit_workflow())
     artifacts.extend(reproduction_workflow())
-    artifacts.extend(backtest_workflow(include_ml=include_ml))
+    backtest_artifacts = backtest_workflow(include_ml=include_ml)
+    artifacts.extend(backtest_artifacts)
+    artifacts.extend(assess_external_data_files())
+    immutable_forecast = next(
+        path
+        for path in backtest_artifacts
+        if path.name == "rolling_origin_forecasts.csv" and "runs" in path.parts
+    )
+    publication = build_publication_artifacts(immutable_forecast)
+    artifacts.extend(publication.tables)
+    artifacts.extend(publication.figures)
     return artifacts

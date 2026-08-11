@@ -7,6 +7,8 @@ estimands deliberately separate.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,14 +92,43 @@ class PublicationArtifacts:
 
 
 def locate_latest_immutable_forecasts(results_root: str | Path = "results") -> Path:
-    """Return the newest forecast CSV below ``results/runs/<run_id>``.
+    """Return the latest registry-verified forecast, with a filesystem fallback.
 
-    Modification time represents the most recently completed immutable run.  A
-    run-id path tie-breaker makes selection deterministic on coarse filesystems.
-    Mutable compatibility aliases under ``results/forecasts`` are never searched.
+    A clean-source registry row and its recorded SHA-256 take priority, so merely touching or
+    copying an older run cannot redirect publication outputs. Mutable compatibility aliases under
+    ``results/forecasts`` are never searched. The modification-time fallback exists only for
+    isolated/synthetic runs without a registry.
     """
 
     root = resolve_from_root(results_root)
+    registry_path = root / "experiment_registry.csv"
+    if registry_path.is_file():
+        registry = pd.read_csv(registry_path, dtype="string", keep_default_na=False)
+        if {"timestamp_utc", "run_id", "source_state", "artifact_paths"}.issubset(registry):
+            ordered = registry.sort_values("timestamp_utc", ascending=False, kind="mergesort")
+            seen_runs: set[str] = set()
+            for row in ordered.to_dict(orient="records"):
+                run_id = str(row["run_id"])
+                if not run_id or run_id in seen_runs:
+                    continue
+                seen_runs.add(run_id)
+                try:
+                    source_state = json.loads(str(row["source_state"]))
+                    artifacts = json.loads(str(row["artifact_paths"]))
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if source_state.get("dirty") is not False:
+                    continue
+                for artifact in artifacts:
+                    relative = Path(str(artifact.get("path", "")))
+                    if relative.name != FORECAST_FILENAME or "runs" not in relative.parts:
+                        continue
+                    candidate = root.parent / relative
+                    if not candidate.is_file() or candidate.parent.parent.name != run_id:
+                        continue
+                    digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
+                    if digest == artifact.get("sha256"):
+                        return candidate
     candidates = [
         path for path in root.glob(f"runs/*/forecasts/{FORECAST_FILENAME}") if path.is_file()
     ]
@@ -265,6 +296,54 @@ def pooled_metrics(
         record.update(_metric_record(group))
         records.append(record)
     return pd.DataFrame(records).sort_values(grouping, kind="mergesort").reset_index(drop=True)
+
+
+def macro_fold_scaled_metrics(
+    fold_metrics: pd.DataFrame,
+    *,
+    run_id: str,
+) -> pd.DataFrame:
+    """Summarize fold-specific MASE/RMSSE without inventing a pooled scale denominator."""
+
+    required = {"protocol", "model", "fold_id", "full_n", "full_mase", "full_rmsse"}
+    missing = sorted(required - set(fold_metrics.columns))
+    if missing:
+        return pd.DataFrame(
+            [
+                {
+                    "run_id": run_id,
+                    "status": "not_available",
+                    "note": f"fold metrics missing required columns: {missing}",
+                }
+            ]
+        )
+    frame = fold_metrics.copy()
+    for column in ("full_n", "full_mase", "full_rmsse"):
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    frame = frame.loc[frame["full_n"] > 0]
+    records: list[dict[str, object]] = []
+    for (protocol, model), group in frame.groupby(["protocol", "model"], sort=True):
+        records.append(
+            {
+                "run_id": run_id,
+                "protocol": protocol,
+                "model": model,
+                "support": "unweighted_macro_mean_of_fold_specific_scaled_errors",
+                "folds": int(group["fold_id"].nunique()),
+                "observations_across_folds": int(group["full_n"].sum()),
+                "macro_fold_mase": float(group["full_mase"].mean()),
+                "macro_fold_mase_median": float(group["full_mase"].median()),
+                "macro_fold_rmsse": float(group["full_rmsse"].mean()),
+                "macro_fold_rmsse_median": float(group["full_rmsse"].median()),
+                "note": (
+                    "Each fold uses its own in-sample seasonal scale; these values are not "
+                    "pooled observation-weighted errors."
+                ),
+            }
+        )
+    return pd.DataFrame(records).sort_values(
+        ["protocol", "macro_fold_mase", "model"], kind="mergesort"
+    )
 
 
 def _benchmark_for_group(group: pd.DataFrame, forecasts: pd.DataFrame) -> pd.Series:
@@ -702,6 +781,10 @@ def build_publication_artifacts(
     tables_destination.mkdir(parents=True, exist_ok=True)
     figures_destination.mkdir(parents=True, exist_ok=True)
 
+    run_id = str(forecasts["run_id"].iloc[0])
+    fold_metrics_path = source_path.parent.parent / "rolling_origin_fold_metrics.csv"
+    fold_metrics = pd.read_csv(fold_metrics_path) if fold_metrics_path.is_file() else pd.DataFrame()
+
     table_frames = {
         "publication_metrics_overall_full_support.csv": pooled_metrics(forecasts),
         **{
@@ -714,6 +797,10 @@ def build_publication_artifacts(
             forecasts,
             bootstrap_repetitions=bootstrap_repetitions,
             seed=seed,
+        ),
+        "publication_macro_fold_scaled_metrics.csv": macro_fold_scaled_metrics(
+            fold_metrics,
+            run_id=run_id,
         ),
     }
     table_paths: list[Path] = []

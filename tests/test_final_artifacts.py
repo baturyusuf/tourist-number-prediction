@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -8,6 +10,7 @@ from tourism_forecasting.final_artifacts import (
     build_publication_artifacts,
     load_forecasts,
     locate_latest_immutable_forecasts,
+    macro_fold_scaled_metrics,
     paired_loss_comparisons,
     pooled_metrics,
 )
@@ -62,6 +65,38 @@ def test_latest_forecast_locator_ignores_mutable_alias(tmp_path: Path) -> None:
     assert locate_latest_immutable_forecasts(tmp_path) == new
 
 
+def test_latest_forecast_locator_prefers_registry_hash_over_mtime(tmp_path: Path) -> None:
+    results = tmp_path / "results"
+    verified = results / "runs" / "run_verified" / "forecasts" / "rolling_origin_forecasts.csv"
+    touched = results / "runs" / "run_touched" / "forecasts" / "rolling_origin_forecasts.csv"
+    for path, content in ((verified, b"verified\n"), (touched, b"touched\n")):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    os.utime(verified, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(touched, ns=(3_000_000_000, 3_000_000_000))
+    pd.DataFrame(
+        [
+            {
+                "timestamp_utc": "2026-08-11T18:00:00+00:00",
+                "run_id": "run_verified",
+                "source_state": json.dumps({"dirty": False}),
+                "artifact_paths": json.dumps(
+                    [
+                        {
+                            "path": (
+                                "results/runs/run_verified/forecasts/"
+                                "rolling_origin_forecasts.csv"
+                            ),
+                            "sha256": hashlib.sha256(b"verified\n").hexdigest(),
+                        }
+                    ]
+                ),
+            }
+        ]
+    ).to_csv(results / "experiment_registry.csv", index=False)
+    assert locate_latest_immutable_forecasts(results) == verified
+
+
 def test_full_support_metrics_and_paired_comparisons() -> None:
     frame = _synthetic_forecasts()
     metrics = pooled_metrics(frame)
@@ -81,6 +116,23 @@ def test_full_support_metrics_and_paired_comparisons() -> None:
     pd.testing.assert_frame_equal(comparisons, repeated)
 
 
+def test_macro_fold_scaled_metrics_keeps_fold_specific_scale_explicit() -> None:
+    frame = pd.DataFrame(
+        {
+            "protocol": ["p", "p"],
+            "model": ["m", "m"],
+            "fold_id": ["a", "b"],
+            "full_n": [9, 12],
+            "full_mase": [0.5, 1.5],
+            "full_rmsse": [0.75, 1.25],
+        }
+    )
+    result = macro_fold_scaled_metrics(frame, run_id="run_test").iloc[0]
+    assert result["macro_fold_mase"] == 1.0
+    assert result["macro_fold_rmsse"] == 1.0
+    assert result["observations_across_folds"] == 21
+
+
 def test_build_publication_artifacts_from_explicit_synthetic_file(tmp_path: Path) -> None:
     source = tmp_path / "runs" / "run_synthetic" / "forecasts" / "rolling_origin_forecasts.csv"
     source.parent.mkdir(parents=True)
@@ -95,7 +147,7 @@ def test_build_publication_artifacts_from_explicit_synthetic_file(tmp_path: Path
         figures_dir=tmp_path / "figures",
         bootstrap_repetitions=50,
     )
-    assert len(artifacts.tables) == 6
+    assert len(artifacts.tables) == 7
     assert len(artifacts.figures) == 10
     assert all(path.is_file() and path.stat().st_size > 0 for path in artifacts.tables)
     assert all(path.is_file() and path.stat().st_size > 0 for path in artifacts.figures)

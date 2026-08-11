@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: setup test audit reproduce-baselines backtest external-data-assessment final-results reproduce lint
+.PHONY: setup test audit reproduce-baselines backtest ablation external-data-assessment final-results reproduce lint
 
 setup:
 	$(PYTHON) -m pip install -r requirements.lock
@@ -20,6 +20,9 @@ reproduce-baselines:
 
 backtest:
 	$(PYTHON) scripts/run_backtests.py
+
+ablation:
+	$(PYTHON) scripts/run_ablation.py
 
 external-data-assessment:
 	$(PYTHON) scripts/assess_external_data.py

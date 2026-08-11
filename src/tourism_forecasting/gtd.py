@@ -19,6 +19,23 @@ TOURISM_CENTERS: Mapping[str, tuple[float, float]] = {
     "Nevsehir_Cappadocia": (38.6244, 34.7239),
 }
 
+GTD_ANALYSIS_COLUMNS: tuple[str, ...] = (
+    "iyear",
+    "imonth",
+    "country_txt",
+    "crit1",
+    "crit2",
+    "crit3",
+    "doubtterr",
+    "success",
+    "nkill",
+    "nwound",
+    "latitude",
+    "longitude",
+    "targtype1_txt",
+    "targsubtype1_txt",
+)
+
 
 @dataclass(frozen=True)
 class GTDAggregationMetadata:
@@ -51,10 +68,16 @@ def haversine_km(
 
 
 def read_gtd(path: str | Path = "data/kaggle/global_terrorism.xlsx") -> pd.DataFrame:
+    """Read only fields required by the aggregate robustness analysis.
+
+    Excluding identifiers, narratives, actor names, and source citations reduces memory use and
+    makes accidental propagation of licensed event-level content structurally less likely.
+    """
+
     source = resolve_from_root(path)
     if source.suffix.lower() in {".xlsx", ".xls"}:
-        return pd.read_excel(source)
-    return pd.read_csv(source, low_memory=False)
+        return pd.read_excel(source, usecols=list(GTD_ANALYSIS_COLUMNS))
+    return pd.read_csv(source, usecols=list(GTD_ANALYSIS_COLUMNS), low_memory=False)
 
 
 def aggregate_gtd_monthly(
@@ -117,6 +140,16 @@ def aggregate_gtd_monthly(
         regex=True,
         na=False,
     ).astype(int)
+    selected["hotel_resort_target"] = (
+        target_subtype.fillna("")
+        .str.contains(
+            "Hotel|Resort|Lodging",
+            case=False,
+            regex=True,
+            na=False,
+        )
+        .astype(int)
+    )
 
     latitude_source = (
         selected["latitude"] if "latitude" in selected else pd.Series(np.nan, index=selected.index)
@@ -153,6 +186,7 @@ def aggregate_gtd_monthly(
         severity_known=("severity", lambda values: values.sum(min_count=1)),
         events_partial_unknown_severity=("severity_partial_unknown", "sum"),
         tourism_transport_targets=("tourism_transport_target", "sum"),
+        hotel_resort_targets=("hotel_resort_target", "sum"),
         incidents_within_100km_known=(
             "within_100km_tourism_center",
             lambda values: values.sum(min_count=1),

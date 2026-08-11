@@ -315,8 +315,10 @@ def backtest_tabular_fixed_origin(
     tune: bool = True,
     target_publication_delay_months: int = 3,
     parameter_grids: Mapping[str, Mapping[str, Sequence[object]]] | None = None,
+    exogenous_lags: Mapping[str, int] | None = None,
+    feature_block: str = "b0",
 ) -> BacktestOutput:
-    """Evaluate recursive B0 models; realized test targets/exogenous values are not consumed."""
+    """Evaluate recursive models; realized test targets/exogenous values are not consumed."""
 
     assert_monthly_continuity(frame)
     dates = pd.to_datetime(frame["date"])
@@ -326,6 +328,15 @@ def backtest_tabular_fixed_origin(
     )
     if resolved_feature_spec.target_publication_delay_months != target_publication_delay_months:
         raise ValueError("Feature and fold target-publication delays disagree")
+    resolved_exogenous_lags = dict(exogenous_lags or {})
+    normalized_block = feature_block.strip().lower()
+    if not normalized_block or not normalized_block.replace("_", "").isalnum():
+        raise ValueError("feature_block must be a non-empty alphanumeric label")
+    if tune and resolved_exogenous_lags:
+        raise ValueError(
+            "Exogenous snapshot-vintage blocks must use pre-specified parameters; recursive "
+            "12-month inner tuning would require unavailable future exogenous paths"
+        )
     specs = candidate_specs(seed=seed, include_xgboost=True, parameter_grids=parameter_grids)
     forecast_records: list[dict[str, object]] = []
     fold_records: list[dict[str, object]] = []
@@ -341,7 +352,10 @@ def backtest_tabular_fixed_origin(
         actual = target.loc[dates[test_mask]]
         reference = seasonal_naive(training, test_dates)
         built, y, _ = build_supervised_features(
-            history, target_column=target_column, spec=resolved_feature_spec
+            history,
+            target_column=target_column,
+            exogenous_lags=resolved_exogenous_lags,
+            spec=resolved_feature_spec,
         )
         for name in model_names:
             started = perf_counter()
@@ -375,9 +389,10 @@ def backtest_tabular_fixed_origin(
                     test_dates,
                     target_column=target_column,
                     feature_spec=resolved_feature_spec,
+                    exogenous_lags=resolved_exogenous_lags,
                 )
                 result = ForecastResult(
-                    model=f"{name}_recursive_b0",
+                    model=f"{name}_recursive_{normalized_block}",
                     forecast=point,
                     notes=(f"{validation_note}; parameters={fitted.parameters}"),
                 )
@@ -402,7 +417,7 @@ def backtest_tabular_fixed_origin(
                     {
                         "fold_id": fold.fold_id,
                         "protocol": fold.protocol,
-                        "model": f"{name}_recursive_b0",
+                        "model": f"{name}_recursive_{normalized_block}",
                         "train_start": fold.train_start.strftime("%Y-%m"),
                         "train_end": fold.train_end.strftime("%Y-%m"),
                         "test_start": fold.test_start.strftime("%Y-%m"),
