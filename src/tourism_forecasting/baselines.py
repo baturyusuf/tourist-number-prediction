@@ -82,6 +82,15 @@ def seasonal_naive(
     train = _series(training)
     index = _test_index(test_dates)
     history = train.copy()
+    internal_fill_count = 0
+    # Missing observations and release-masked tail months are model states, not raw-data edits.
+    # Recursively project each unavailable reference from the preceding season when possible.
+    for date in history.index[history.isna()]:
+        reference = date - pd.DateOffset(months=seasonal_period)
+        value = history.get(reference, np.nan)
+        if pd.notna(value):
+            history.loc[date] = float(value)
+            internal_fill_count += 1
     values: list[float] = []
     for date in index:
         reference = date - pd.DateOffset(months=seasonal_period)
@@ -92,7 +101,13 @@ def seasonal_naive(
     point = pd.Series(values, index=index, dtype=float)
     residuals = train - train.shift(seasonal_period)
     lower, upper = _interval_from_residuals(point, residuals)
-    return ForecastResult("seasonal_naive", point, lower, upper)
+    note = (
+        f"release-aware recursive seasonal fill for {internal_fill_count} unavailable "
+        "training reference months; raw target unchanged"
+        if internal_fill_count
+        else ""
+    )
+    return ForecastResult("seasonal_naive", point, lower, upper, note)
 
 
 def drift(training: pd.Series, test_dates: pd.DatetimeIndex) -> ForecastResult:

@@ -71,7 +71,7 @@ def test_stl_arima_produces_forecast_and_interval() -> None:
 def test_model_skill_uses_common_seasonal_naive_dates() -> None:
     dates = pd.date_range("2018-01-01", "2021-12-01", freq="MS")
     values = np.arange(len(dates), dtype=float) + 100
-    values[(dates.year == 2020) & dates.month.isin([4, 5, 6])] = np.nan
+    values[(dates.year <= 2020) & dates.month.isin([4, 5, 6])] = np.nan
     frame = pd.DataFrame({"date": dates, "target_original_with_missing": values})
     fold = ForecastFold(
         "fixed_2021",
@@ -85,16 +85,26 @@ def test_model_skill_uses_common_seasonal_naive_dates() -> None:
     output = backtest_baselines(
         frame,
         [fold],
-        model_names=["seasonal_naive", "same_month_historical_mean"],
+        model_names=["seasonal_naive", "naive_last"],
         target_publication_delay_months=0,
     )
     assert set(output.fold_metrics["paired_n"]) == {9.0}
     full_by_model = output.fold_metrics.set_index("model")["full_n"]
     assert full_by_model["seasonal_naive"] == 9.0
-    assert full_by_model["same_month_historical_mean"] == 12.0
+    assert full_by_model["naive_last"] == 12.0
     leaderboard = output.leaderboard.set_index("model")
-    assert leaderboard.loc["same_month_historical_mean", "pooled_full_n"] == 12.0
-    assert leaderboard.loc["same_month_historical_mean", "pooled_paired_n"] == 9.0
+    assert leaderboard.loc["naive_last", "pooled_full_n"] == 12.0
+    assert leaderboard.loc["naive_last", "pooled_paired_n"] == 9.0
+
+
+def test_seasonal_naive_recursively_projects_release_masked_tail() -> None:
+    index = pd.date_range("2018-01-01", "2020-12-01", freq="MS")
+    values = pd.Series(np.arange(len(index), dtype=float), index=index)
+    values.loc["2020-10-01":] = np.nan
+    result = seasonal_naive(values, pd.date_range("2021-01-01", periods=12, freq="MS"))
+    assert result.forecast.notna().all()
+    assert result.forecast.loc["2021-10-01"] == values.loc["2019-10-01"]
+    assert "raw target unchanged" in result.notes
 
 
 def test_backtest_fails_before_row_based_lags_when_month_is_missing() -> None:
