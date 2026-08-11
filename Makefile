@@ -1,4 +1,5 @@
 PYTHON ?= python
+FINAL_FORECAST_PATH ?= results/runs/run_20260811T162732Z_6bbfe89e/forecasts/rolling_origin_forecasts.csv
 
 .PHONY: setup test audit reproduce-baselines backtest ablation external-data-assessment external-validation-2026q1 final-results reproduce lint
 
@@ -31,7 +32,7 @@ external-validation-2026q1:
 	$(PYTHON) scripts/validate_2026q1_external.py
 
 final-results:
-	$(PYTHON) scripts/build_final_artifacts.py
+	$(PYTHON) scripts/build_final_artifacts.py --forecast-path $(FINAL_FORECAST_PATH)
 
 reproduce:
 	$(PYTHON) scripts/reproduce.py
