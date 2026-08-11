@@ -906,6 +906,7 @@ def _validation_design_figure(
     columns = [
         "protocol",
         "fold_id",
+        "forecast_origin",
         "date",
         "horizon",
         "actual",
@@ -917,12 +918,15 @@ def _validation_design_figure(
         source["target_available_through"] = pd.NaT
     if "target_publication_delay_months" not in source:
         source["target_publication_delay_months"] = pd.NA
+    if "forecast_origin" not in source:
+        source["forecast_origin"] = pd.NaT
     design = source[columns].drop_duplicates(
         ["protocol", "fold_id", "date", "horizon"], keep="first"
     )
     design["target_available_through"] = pd.to_datetime(
         design["target_available_through"], errors="coerce"
     )
+    design["forecast_origin"] = pd.to_datetime(design["forecast_origin"], errors="coerce")
     protocols = sorted(design["protocol"].unique())
     fig, axes = _protocol_axes(protocols, width=11.5, height=3.2)
     for axis, protocol in zip(axes, protocols, strict=True):
@@ -944,15 +948,25 @@ def _validation_design_figure(
                 color="#b2182b",
                 label=f"missing target (n={int((~evaluable).sum())})",
             )
-        lag_months = (
-            (panel["date"].dt.year - panel["target_available_through"].dt.year) * 12
-            + panel["date"].dt.month
+        origin_delay = (
+            (panel["forecast_origin"].dt.year - panel["target_available_through"].dt.year)
+            * 12
+            + panel["forecast_origin"].dt.month
             - panel["target_available_through"].dt.month
         )
-        lag_label = int(lag_months.dropna().median()) if lag_months.notna().any() else None
+        delay_label = (
+            int(origin_delay.dropna().median()) if origin_delay.notna().any() else None
+        )
+        if protocol == "fixed_origin_12m_ex_ante" and delay_label is not None:
+            availability_label = (
+                f"; at the December origin, target data end {delay_label} months earlier"
+            )
+        elif delay_label is not None:
+            availability_label = f"; target history ends t-{delay_label + 1}"
+        else:
+            availability_label = ""
         axis.set_title(
-            f"{_protocol_label(protocol)}"
-            + (f"; target history ends t-{lag_label}" if lag_label is not None else ""),
+            f"{_protocol_label(protocol)}{availability_label}",
             loc="left",
         )
         axis.set_ylabel("Forecast horizon (months)")

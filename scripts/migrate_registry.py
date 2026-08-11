@@ -36,13 +36,23 @@ def migrate() -> int:
             frame.at[index, "package_versions"] = json.dumps(
                 ast.literal_eval(package_versions), sort_keys=True, separators=(",", ":")
             )
-    invalid_gtd = frame["run_id"].eq("gtd_20260811T165245Z_85f099db")
-    invalid_gtd_failure = "superseded_gtd_generator_wording_error"
-    invalid_gtd_marker = (
-        "Run invalidated before publication: generated method note contradicted its recorded "
-        "bootstrap interval; corrected clean-source rerun retained separately"
-    )
+    invalid_gtd_reasons = {
+        "gtd_20260811T165245Z_85f099db": (
+            "superseded_gtd_generator_wording_error",
+            "Run invalidated before publication: generated method note contradicted its "
+            "recorded bootstrap interval; corrected clean-source rerun retained separately",
+        ),
+        "gtd_20260811T171305Z_f6039b77": (
+            "superseded_publication_figure_layout",
+            "Run invalidated before publication: generated aggregate figures had overlapping "
+            "source notes; corrected clean-source rerun retained separately",
+        ),
+    }
+    invalid_gtd = frame["run_id"].isin(invalid_gtd_reasons)
     for index in frame.index[invalid_gtd]:
+        invalid_gtd_failure, invalid_gtd_marker = invalid_gtd_reasons[
+            frame.at[index, "run_id"]
+        ]
         notes = frame.at[index, "notes"]
         if invalid_gtd_marker not in notes:
             frame.at[index, "notes"] = f"{notes}; {invalid_gtd_marker}".strip("; ")
