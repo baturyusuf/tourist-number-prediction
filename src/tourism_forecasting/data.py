@@ -72,7 +72,13 @@ def _logical_source_path(path: Path) -> str:
 
 
 def _decode_csv(raw: bytes) -> tuple[str, str]:
-    for encoding in ("utf-8-sig", "utf-8", "cp1254"):
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8-sig"), "utf-8 with BOM"
+    try:
+        return raw.decode("ascii"), "ASCII (UTF-8 compatible; no BOM)"
+    except UnicodeDecodeError:
+        pass
+    for encoding in ("utf-8", "cp1254"):
         try:
             return raw.decode(encoding), encoding
         except UnicodeDecodeError:

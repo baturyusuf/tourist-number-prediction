@@ -22,6 +22,7 @@ def test_strict_date_parsing_and_target_variants(tmp_path: Path) -> None:
     assert not Path(audit.path).is_absolute()
     assert audit.missing_target == 3
     assert audit.missing_months == 0
+    assert audit.encoding == "ASCII (UTF-8 compatible; no BOM)"
     assert frame["target_original_with_missing"].isna().sum() == 3
     assert frame["target_official"].isna().sum() == 3
     assert frame["target_interpolated_legacy"].notna().all()
@@ -50,5 +51,6 @@ def test_supplied_core_integration_if_present() -> None:
     assert (audit.start, audit.end) == ("2008-01", "2025-12")
     assert audit.sha256 == "a7885fb0e1ed5de7d64ae180733effc0baebad1e4842ef6bca467466b5b538e5"
     assert audit.path == "data/raw/turizm_kisi_Reel_HICP_Trend.csv"
+    assert audit.encoding == "ASCII (UTF-8 compatible; no BOM)"
     assert audit.missing_target_dates == "2020-04, 2020-05, 2020-06"
     assert_monthly_continuity(frame)
