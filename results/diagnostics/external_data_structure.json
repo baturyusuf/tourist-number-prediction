@@ -1,0 +1,50 @@
+{
+  "gtd": {
+    "bytes": 104455519,
+    "core_properties": {
+      "created": "2006-10-24T03:27:27Z",
+      "modified": "2022-05-01T02:12:49Z"
+    },
+    "filename": "global_terrorism.xlsx",
+    "sha256": "4f372d996ba31365f69a13b15a1e72507c7d8b65faad430e9343b44a538c2b07",
+    "sheets": [
+      {
+        "dimension": "A1:EE209707",
+        "header_columns": 135,
+        "header_sha256": "73075024adb501087f53a494dc020175b09ff64b7a7be620de62d8424bbe108f",
+        "name": "Data"
+      }
+    ],
+    "zip_crc_ok": true
+  },
+  "instagram": {
+    "bytes": 39685918,
+    "core_properties": {
+      "created": "2026-08-05T11:52:25Z",
+      "modified": "2026-08-05T12:24:55Z"
+    },
+    "filename": "trending_hashtags.xlsx",
+    "sha256": "d6230b265bd4a058c636a0a2c0b8a7b36343cb96cdb03333440669f96b1c0f5e",
+    "sheets": [
+      {
+        "dimension": "A1:F300001",
+        "header_columns": 6,
+        "header_sha256": "ce88bcd49f0a3b7b15ef4d73f6852e1dbc39799aa1a16230b4668ee385372b64",
+        "name": "trending_hashtags"
+      },
+      {
+        "dimension": "A1:F300001",
+        "header_columns": 6,
+        "header_sha256": "ce88bcd49f0a3b7b15ef4d73f6852e1dbc39799aa1a16230b4668ee385372b64",
+        "name": "Sayfa1"
+      },
+      {
+        "dimension": "A1:F300001",
+        "header_columns": 6,
+        "header_sha256": "ce88bcd49f0a3b7b15ef4d73f6852e1dbc39799aa1a16230b4668ee385372b64",
+        "name": "Sayfa2"
+      }
+    ],
+    "zip_crc_ok": true
+  }
+}

@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import FuncFormatter
 
 from tourism_forecasting.comparison import (
     diebold_mariano,
@@ -42,6 +43,27 @@ FORECAST_FILENAME = "rolling_origin_forecasts.csv"
 SOURCE_NOTE = (
     "Source: immutable rolling-origin forecast run; calculations by the reproducible " "pipeline."
 )
+
+PROTOCOL_LABELS = {
+    "fixed_origin_12m_ex_ante": "Fixed-origin 12-month ex ante",
+    "one_step_ex_ante": "One-step ex ante",
+}
+MODEL_LABELS = {
+    "seasonal_naive": "Seasonal naive",
+    "same_month_mean": "Same-month mean",
+    "seasonal_moving_average_3": "Seasonal moving average (3 years)",
+    "ets_holt_winters": "ETS / Holt-Winters",
+    "theta": "Theta",
+    "stl_arima_111": "STL + ARIMA(1,1,1)",
+    "ridge_recursive_b0": "Ridge (B0, recursive)",
+    "hist_gradient_boosting_recursive_b0": "Histogram boosting (B0, recursive)",
+}
+REGIME_LABELS = {
+    "pre_pandemic": "Pre-pandemic",
+    "pandemic_shock": "Pandemic shock",
+    "recovery": "Recovery",
+    "normalization": "Normalization",
+}
 
 REQUIRED_COLUMNS = {
     "fold_id",
@@ -397,6 +419,64 @@ def _model_colors(models: Sequence[str]) -> dict[str, object]:
     return {model: palette[index % len(palette)] for index, model in enumerate(models)}
 
 
+def _protocol_label(protocol: object) -> str:
+    value = str(protocol)
+    return PROTOCOL_LABELS.get(value, value.replace("_", " ").title())
+
+
+def _model_label(model: object) -> str:
+    value = str(model)
+    return MODEL_LABELS.get(value, value.replace("_", " ").title())
+
+
+def _millions_formatter() -> FuncFormatter:
+    return FuncFormatter(lambda value, _position: f"{value / 1_000_000:.1f}")
+
+
+def _ranked_protocol_models(
+    panel: pd.DataFrame,
+    shortlist: Sequence[str],
+    *,
+    maximum_nonbenchmarks: int = 3,
+) -> list[str]:
+    """Return the benchmark and best shortlisted alternatives for one protocol."""
+
+    candidates = panel.loc[panel["model"].isin(shortlist)].copy()
+    records: list[tuple[str, float]] = []
+    for model, group in candidates.groupby("model", sort=True):
+        if {"actual", "forecast", "full_evaluable"}.issubset(group.columns):
+            supported = _full_support(group)
+            score = (
+                mae(
+                    supported["actual"].to_numpy(dtype=float),
+                    supported["forecast"].to_numpy(dtype=float),
+                )
+                if len(supported)
+                else np.nan
+            )
+        else:
+            observations = pd.to_numeric(group["observations"], errors="coerce")
+            group_mae = pd.to_numeric(group["mae"], errors="coerce")
+            finite = observations.notna() & group_mae.notna() & (observations > 0)
+            score = (
+                float(np.average(group_mae.loc[finite], weights=observations.loc[finite]))
+                if finite.any()
+                else np.nan
+            )
+        records.append((str(model), score))
+    alternatives = sorted(
+        (
+            (model, score)
+            for model, score in records
+            if model != BENCHMARK_MODEL and np.isfinite(score)
+        ),
+        key=lambda item: (item[1], item[0]),
+    )
+    selected = [BENCHMARK_MODEL] if any(model == BENCHMARK_MODEL for model, _ in records) else []
+    selected.extend(model for model, _ in alternatives[:maximum_nonbenchmarks])
+    return selected
+
+
 def _save_publication_figure(fig: plt.Figure, stem: Path) -> tuple[Path, Path]:
     stem.parent.mkdir(parents=True, exist_ok=True)
     png = stem.with_suffix(".png")
@@ -435,6 +515,7 @@ def _actual_vs_predicted_figure(
     colors = _model_colors(shortlist)
     for axis, protocol in zip(axes, protocols, strict=True):
         panel = selected.loc[selected["protocol"] == protocol]
+        panel_models = _ranked_protocol_models(panel, shortlist)
         actual = (
             panel.dropna(subset=["actual"])
             .sort_values(["date", "model"], kind="mergesort")
@@ -448,7 +529,7 @@ def _actual_vs_predicted_figure(
             label=f"actual (n={len(actual)})",
             zorder=5,
         )
-        for model in shortlist:
+        for model in panel_models:
             group = _full_support(panel.loc[panel["model"] == model]).sort_values("date")
             if group.empty:
                 continue
@@ -458,10 +539,11 @@ def _actual_vs_predicted_figure(
                 linewidth=1.0,
                 alpha=0.9,
                 color=colors[model],
-                label=f"{model} (n={len(group)})",
+                label=f"{_model_label(model)} (n={len(group)})",
             )
-        axis.set_title(str(protocol), loc="left")
-        axis.set_ylabel("Monthly visitors")
+        axis.set_title(_protocol_label(protocol), loc="left")
+        axis.set_ylabel("Monthly visitors (millions)")
+        axis.yaxis.set_major_formatter(_millions_formatter())
         axis.legend(ncol=2, frameon=True)
     axes[-1].set_xlabel("Target month")
     fig.suptitle(
@@ -482,7 +564,7 @@ def _error_dimension_figure(
 ) -> tuple[Path, Path]:
     selected = metrics.loc[metrics["model"].isin(shortlist)].copy()
     protocols = sorted(selected["protocol"].unique())
-    fig, axes = _protocol_axes(protocols, height=3.8)
+    fig, axes = _protocol_axes(protocols, width=11.5, height=3.8)
     colors = _model_colors(shortlist)
     if dimension == "month":
         labels = [pd.Timestamp(2000, month, 1).strftime("%b") for month in range(1, 13)]
@@ -490,7 +572,32 @@ def _error_dimension_figure(
         labels = None
     for axis, protocol in zip(axes, protocols, strict=True):
         panel = selected.loc[selected["protocol"] == protocol]
-        for model in shortlist:
+        panel_models = _ranked_protocol_models(panel, shortlist)
+        if dimension == "horizon" and panel[dimension].nunique() == 1:
+            point = panel.loc[
+                panel["model"].isin(panel_models) & panel["mae"].notna()
+            ].drop_duplicates("model")
+            point["_order"] = point["model"].map(
+                {model: order for order, model in enumerate(panel_models)}
+            )
+            point = point.sort_values("_order", kind="mergesort")
+            positions = np.arange(len(point))
+            axis.bar(
+                positions,
+                point["mae"],
+                color=[colors[model] for model in point["model"]],
+            )
+            axis.set_xticks(
+                positions,
+                [_model_label(model) for model in point["model"]],
+                rotation=12,
+                ha="right",
+            )
+            axis.set_title(f"{_protocol_label(protocol)} (horizon 1)", loc="left")
+            axis.set_ylabel("MAE (millions of visitors)")
+            axis.yaxis.set_major_formatter(_millions_formatter())
+            continue
+        for model in panel_models:
             group = panel.loc[panel["model"] == model].copy()
             if dimension == "regime":
                 regime_order = {
@@ -512,16 +619,26 @@ def _error_dimension_figure(
                 markersize=3,
                 linewidth=1.2,
                 color=colors[model],
-                label=model,
+                label=_model_label(model),
             )
-        axis.set_title(str(protocol), loc="left")
-        axis.set_ylabel("MAE (visitors)")
+        axis.set_title(_protocol_label(protocol), loc="left")
+        axis.set_ylabel("MAE (millions of visitors)")
+        axis.yaxis.set_major_formatter(_millions_formatter())
         if labels is not None:
             axis.set_xticks(range(1, 13), labels)
         elif dimension == "regime":
-            axis.tick_params(axis="x", labelrotation=20)
+            ordered_labels = list(REGIME_LABELS)
+            axis.set_xticks(ordered_labels, [REGIME_LABELS[label] for label in ordered_labels])
+            axis.tick_params(axis="x", labelrotation=15)
         axis.legend(ncol=2, frameon=True)
-    axes[-1].set_xlabel(dimension.replace("_", " ").title())
+    if dimension == "horizon" and (
+        selected.loc[selected["protocol"] == protocols[-1], dimension].nunique() == 1
+    ):
+        axes[-1].set_xlabel("One-month-ahead model")
+    else:
+        axes[-1].set_xlabel(
+            "Forecast horizon (months)" if dimension == "horizon" else dimension.title()
+        )
     fig.suptitle(
         f"Forecast error by {dimension}\nModel-specific full evaluable support",
         x=0.01,
@@ -540,7 +657,9 @@ def _interval_figure(
     selected = overall.loc[
         overall["model"].isin(shortlist) & (overall["interval_95_observations"] > 0)
     ].copy()
-    selected["label"] = selected["protocol"].astype(str) + " | " + selected["model"].astype(str)
+    selected["label"] = selected.apply(
+        lambda row: f"{_protocol_label(row['protocol'])} | {_model_label(row['model'])}", axis=1
+    )
     selected = selected.sort_values(["protocol", "model"], kind="mergesort")
     fig, axes = plt.subplots(1, 2, figsize=(12, max(4.2, 0.42 * len(selected) + 1.8)))
     positions = np.arange(len(selected))
@@ -553,7 +672,8 @@ def _interval_figure(
     axes[0].legend(frameon=True)
     axes[1].barh(positions, selected["interval_95_mean_width"], color="#d28e47")
     axes[1].set_yticks(positions, [""] * len(selected))
-    axes[1].set_xlabel("Mean interval width (visitors)")
+    axes[1].set_xlabel("Mean interval width (millions of visitors)")
+    axes[1].xaxis.set_major_formatter(_millions_formatter())
     axes[1].set_title("95% interval width", loc="left")
     fig.suptitle(
         "Prediction-interval diagnostics\nProtocol | model; model-specific full interval support",

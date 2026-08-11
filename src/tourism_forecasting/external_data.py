@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import zipfile
+from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from xml.etree import ElementTree as ET
 
@@ -162,8 +163,25 @@ def assess_external_data_files(
     pd.DataFrame(records).to_csv(table_path, index=False)
     diagnostics_path = resolve_from_root(diagnostics_dir) / "external_data_structure.json"
     diagnostics_path.parent.mkdir(parents=True, exist_ok=True)
+    public_diagnostics: dict[str, object] = {}
+    for candidate, structure in (("instagram", instagram), ("gtd", gtd)):
+        public_sheets = []
+        for sheet in structure["sheets"]:
+            header = [str(value) for value in sheet["header"]]
+            public_sheets.append(
+                {
+                    "name": sheet["name"],
+                    "dimension": sheet["dimension"],
+                    "header_columns": len(header),
+                    "header_sha256": sha256("\x1f".join(header).encode("utf-8")).hexdigest(),
+                }
+            )
+        public_diagnostics[candidate] = {
+            key: value for key, value in structure.items() if key != "sheets"
+        }
+        public_diagnostics[candidate]["sheets"] = public_sheets
     diagnostics_path.write_text(
-        json.dumps({"instagram": instagram, "gtd": gtd}, indent=2, sort_keys=True) + "\n",
+        json.dumps(public_diagnostics, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return table_path, diagnostics_path
