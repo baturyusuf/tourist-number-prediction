@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -350,8 +350,11 @@ def publication_scope_status(
     *,
     run_id: str,
     external_2026_available: bool = False,
+    evidence_run_ids: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
     """Make completed, conditional, and unavailable publication outputs explicit."""
+
+    linked_runs = dict(evidence_run_ids or {})
 
     rows = [
         (
@@ -460,7 +463,7 @@ def publication_scope_status(
     return pd.DataFrame(
         [
             {
-                "run_id": run_id,
+                "run_id": linked_runs.get(deliverable, run_id),
                 "deliverable": deliverable,
                 "status": status,
                 "artifact": artifact,
@@ -469,6 +472,18 @@ def publication_scope_status(
             for deliverable, status, artifact, boundary in rows
         ]
     )
+
+
+def _single_artifact_run_id(path: Path) -> str | None:
+    """Return the sole run ID in an evidence table, failing on mixed provenance."""
+
+    if not path.is_file():
+        return None
+    frame = pd.read_csv(path, usecols=["run_id"], dtype="string")
+    values = frame["run_id"].dropna().unique().tolist()
+    if len(values) != 1:
+        raise ValueError(f"Expected exactly one run_id in {path}; found {values}")
+    return str(values[0])
 
 
 def _benchmark_for_group(group: pd.DataFrame, forecasts: pd.DataFrame) -> pd.Series:
@@ -1040,6 +1055,30 @@ def build_publication_artifacts(
     run_id = str(forecasts["run_id"].iloc[0])
     fold_metrics_path = source_path.parent.parent / "rolling_origin_fold_metrics.csv"
     fold_metrics = pd.read_csv(fold_metrics_path) if fold_metrics_path.is_file() else pd.DataFrame()
+    external_table = tables_destination / "publication_2026q1_external_validation.csv"
+    evidence_run_ids = {
+        deliverable: linked_run
+        for deliverable, linked_run in (
+            ("legacy_2025_reproduction", "legacy_2025_reproduction"),
+            (
+                "2026_external_validation",
+                _single_artifact_run_id(external_table),
+            ),
+            (
+                "macroeconomic_ablation",
+                _single_artifact_run_id(
+                    tables_destination / "model_ablation_snapshot_vintage.csv"
+                ),
+            ),
+            (
+                "gtd_common_sample",
+                _single_artifact_run_id(
+                    tables_destination / "gtd_predictive_common_sample.csv"
+                ),
+            ),
+        )
+        if linked_run is not None
+    }
 
     table_frames = {
         "publication_metrics_overall_full_support.csv": pooled_metrics(forecasts),
@@ -1060,9 +1099,8 @@ def build_publication_artifacts(
         ),
         "publication_scope_status.csv": publication_scope_status(
             run_id=run_id,
-            external_2026_available=(
-                tables_destination / "publication_2026q1_external_validation.csv"
-            ).is_file(),
+            external_2026_available=external_table.is_file(),
+            evidence_run_ids=evidence_run_ids,
         ),
     }
     table_paths: list[Path] = []

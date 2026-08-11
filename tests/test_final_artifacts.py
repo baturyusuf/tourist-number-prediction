@@ -138,7 +138,13 @@ def test_publication_scope_status_keeps_unavailable_extensions_explicit() -> Non
     unavailable = publication_scope_status(run_id="run_test").set_index("deliverable")
     assert unavailable.loc["2026_external_validation", "status"] == "not_yet_generated"
     result = publication_scope_status(
-        run_id="run_test", external_2026_available=True
+        run_id="run_test",
+        external_2026_available=True,
+        evidence_run_ids={
+            "2026_external_validation": "external_test",
+            "macroeconomic_ablation": "ablation_test",
+            "gtd_common_sample": "gtd_test",
+        },
     )
     panel = result.set_index("deliverable")
     assert panel.loc["2026_external_validation", "status"] == (
@@ -148,6 +154,9 @@ def test_publication_scope_status_keeps_unavailable_extensions_explicit() -> Non
         "not_estimable_from_available_inputs"
     )
     assert panel.loc["shap_ale_or_pdp", "status"] == "not_applicable_to_selected_evidence"
+    assert panel.loc["2026_external_validation", "run_id"] == "external_test"
+    assert panel.loc["macroeconomic_ablation", "run_id"] == "ablation_test"
+    assert panel.loc["gtd_common_sample", "run_id"] == "gtd_test"
 
 
 def test_build_publication_artifacts_from_explicit_synthetic_file(tmp_path: Path) -> None:
