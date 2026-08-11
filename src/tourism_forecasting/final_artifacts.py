@@ -346,6 +346,131 @@ def macro_fold_scaled_metrics(
     )
 
 
+def publication_scope_status(
+    *,
+    run_id: str,
+    external_2026_available: bool = False,
+) -> pd.DataFrame:
+    """Make completed, conditional, and unavailable publication outputs explicit."""
+
+    rows = [
+        (
+            "dataset_and_missingness",
+            "completed",
+            "reports/tables/dataset_summary.csv; reports/tables/data_quality_summary.csv",
+            "Audited supplied snapshot; the three Q2-2020 target months remain missing.",
+        ),
+        (
+            "rolling_origin_model_comparison",
+            "completed",
+            "reports/tables/publication_metrics_overall_full_support.csv",
+            "Fixed-origin and one-step ex-ante protocols are reported separately.",
+        ),
+        (
+            "forecast_comparison_uncertainty",
+            "completed",
+            "reports/tables/publication_paired_comparisons_vs_seasonal_naive.csv",
+            "Paired DM/HAC and moving-block bootstrap comparisons use seasonal-naive support.",
+        ),
+        (
+            "scaled_error_summary",
+            "completed",
+            "reports/tables/publication_macro_fold_scaled_metrics.csv",
+            "MASE and RMSSE use explicit unweighted macro means of fold-specific scales.",
+        ),
+        (
+            "legacy_2025_reproduction",
+            "completed_sensitivity",
+            "results/reproduction_metrics.csv",
+            (
+                "Observation-availability legacy comparison; not the operational "
+                "release-delay protocol."
+            ),
+        ),
+        (
+            "2026_external_validation",
+            (
+                "completed_at_quarterly_aggregate_only"
+                if external_2026_available
+                else "not_yet_generated"
+            ),
+            (
+                "reports/tables/publication_2026q1_external_validation.csv"
+                if external_2026_available
+                else ""
+            ),
+            (
+                "Same-definition official Q1 total; monthly 2026 accuracy is not inferred."
+                if external_2026_available
+                else "No frozen same-definition 2026 aggregate validation artifact was found."
+            ),
+        ),
+        (
+            "macroeconomic_ablation",
+            "completed_snapshot_vintage_sensitivity",
+            "reports/tables/model_ablation_snapshot_vintage.csv",
+            (
+                "REER/HICP issue-date vintages are unknown; this is not confirmatory "
+                "operational evidence."
+            ),
+        ),
+        (
+            "gtd_common_sample",
+            "completed_retrospective_sensitivity",
+            "reports/tables/gtd_predictive_common_sample.csv",
+            "Aggregate-only 2008-2020 licensed-data analysis; GTD issue dates are unavailable.",
+        ),
+        (
+            "source_country_arrivals_and_digital_intent_panel",
+            "not_estimable_from_available_inputs",
+            "",
+            (
+                "No definition-consistent, archived country-month target and origin-vintage "
+                "intent panel was available."
+            ),
+        ),
+        (
+            "conditional_or_ex_post_leaderboard",
+            "not_run",
+            "",
+            (
+                "No credible realized-future exogenous path was accepted; an empty track is "
+                "not mixed with ex-ante results."
+            ),
+        ),
+        (
+            "shap_ale_or_pdp",
+            "not_applicable_to_selected_evidence",
+            "",
+            (
+                "No tree model established robust benchmark skill; post-hoc importance would "
+                "not supply causal evidence."
+            ),
+        ),
+        (
+            "security_event_map",
+            "not_published_by_license_design",
+            "",
+            (
+                "The repository publishes aggregate GTD sensitivities, not event locations or "
+                "reconstructable derivatives."
+            ),
+        ),
+    ]
+    return pd.DataFrame(
+        [
+            {
+                "run_id": run_id,
+                "deliverable": deliverable,
+                "status": status,
+                "artifact": artifact,
+                "evidence_boundary": boundary,
+            }
+            for deliverable, status, artifact, boundary in rows
+        ]
+    )
+
+
 def _benchmark_for_group(group: pd.DataFrame, forecasts: pd.DataFrame) -> pd.Series:
     embedded = pd.to_numeric(group["seasonal_naive_forecast"], errors="coerce")
     if embedded.notna().any():
@@ -727,6 +852,123 @@ def _error_dimension_figure(
     return _save_publication_figure(fig, destination / f"publication_mae_by_{dimension}")
 
 
+def _error_over_time_figure(
+    forecasts: pd.DataFrame,
+    shortlist: Sequence[str],
+    destination: Path,
+) -> tuple[Path, Path]:
+    selected = forecasts.loc[forecasts["model"].isin(shortlist)].copy()
+    protocols = sorted(selected["protocol"].unique())
+    fig, axes = _protocol_axes(protocols, width=11.5, height=3.9)
+    colors = _model_colors(shortlist)
+    for axis, protocol in zip(axes, protocols, strict=True):
+        panel = selected.loc[selected["protocol"] == protocol]
+        panel_models = _ranked_protocol_models(panel, shortlist)
+        for model in panel_models:
+            group = _full_support(panel.loc[panel["model"] == model]).sort_values("date")
+            if group.empty:
+                continue
+            absolute_error = (group["forecast"] - group["actual"]).abs()
+            rolling = absolute_error.rolling(12, min_periods=3).mean()
+            axis.plot(
+                group["date"],
+                absolute_error,
+                color=colors[model],
+                alpha=0.12,
+                linewidth=0.7,
+            )
+            axis.plot(
+                group["date"],
+                rolling,
+                color=colors[model],
+                linewidth=1.5,
+                label=f"{_model_label(model)} (12-month mean)",
+            )
+        axis.set_title(_protocol_label(protocol), loc="left")
+        axis.set_ylabel("Absolute error (millions of visitors)")
+        axis.yaxis.set_major_formatter(_millions_formatter())
+        axis.legend(ncol=2, frameon=True)
+    axes[-1].set_xlabel("Target month")
+    fig.suptitle(
+        "Forecast error over time\n"
+        "Faint lines are monthly errors; solid lines are trailing 12-month means",
+        x=0.01,
+        ha="left",
+    )
+    fig.text(0.01, -0.01, SOURCE_NOTE, fontsize=8)
+    return _save_publication_figure(fig, destination / "publication_absolute_error_over_time")
+
+
+def _validation_design_figure(
+    forecasts: pd.DataFrame,
+    destination: Path,
+) -> tuple[Path, Path]:
+    columns = [
+        "protocol",
+        "fold_id",
+        "date",
+        "horizon",
+        "actual",
+        "target_available_through",
+        "target_publication_delay_months",
+    ]
+    source = forecasts.copy()
+    if "target_available_through" not in source:
+        source["target_available_through"] = pd.NaT
+    if "target_publication_delay_months" not in source:
+        source["target_publication_delay_months"] = pd.NA
+    design = source[columns].drop_duplicates(
+        ["protocol", "fold_id", "date", "horizon"], keep="first"
+    )
+    design["target_available_through"] = pd.to_datetime(
+        design["target_available_through"], errors="coerce"
+    )
+    protocols = sorted(design["protocol"].unique())
+    fig, axes = _protocol_axes(protocols, width=11.5, height=3.2)
+    for axis, protocol in zip(axes, protocols, strict=True):
+        panel = design.loc[design["protocol"] == protocol].sort_values("date")
+        evaluable = panel["actual"].notna()
+        axis.scatter(
+            panel.loc[evaluable, "date"],
+            panel.loc[evaluable, "horizon"],
+            s=14,
+            color="#3679a8",
+            label=f"evaluable target (n={int(evaluable.sum())})",
+        )
+        if (~evaluable).any():
+            axis.scatter(
+                panel.loc[~evaluable, "date"],
+                panel.loc[~evaluable, "horizon"],
+                s=30,
+                marker="x",
+                color="#b2182b",
+                label=f"missing target (n={int((~evaluable).sum())})",
+            )
+        lag_months = (
+            (panel["date"].dt.year - panel["target_available_through"].dt.year) * 12
+            + panel["date"].dt.month
+            - panel["target_available_through"].dt.month
+        )
+        lag_label = int(lag_months.dropna().median()) if lag_months.notna().any() else None
+        axis.set_title(
+            f"{_protocol_label(protocol)}"
+            + (f"; target history ends t-{lag_label}" if lag_label is not None else ""),
+            loc="left",
+        )
+        axis.set_ylabel("Forecast horizon (months)")
+        axis.set_ylim(0.4, max(1.6, float(panel["horizon"].max()) + 0.6))
+        axis.legend(ncol=2, frameon=True)
+    axes[-1].set_xlabel("Forecast target month")
+    fig.suptitle(
+        "Rolling-origin validation design\n"
+        "Each point is a prespecified fold target; protocols are not pooled",
+        x=0.01,
+        ha="left",
+    )
+    fig.text(0.01, -0.01, SOURCE_NOTE, fontsize=8)
+    return _save_publication_figure(fig, destination / "publication_validation_design")
+
+
 def _interval_figure(
     overall: pd.DataFrame,
     *,
@@ -802,6 +1044,12 @@ def build_publication_artifacts(
             fold_metrics,
             run_id=run_id,
         ),
+        "publication_scope_status.csv": publication_scope_status(
+            run_id=run_id,
+            external_2026_available=(
+                tables_destination / "publication_2026q1_external_validation.csv"
+            ).is_file(),
+        ),
     }
     table_paths: list[Path] = []
     for filename, frame in table_frames.items():
@@ -815,6 +1063,8 @@ def build_publication_artifacts(
     configure_plotting()
     figure_paths: list[Path] = []
     figure_paths.extend(_actual_vs_predicted_figure(forecasts, selected, figures_destination))
+    figure_paths.extend(_validation_design_figure(forecasts, figures_destination))
+    figure_paths.extend(_error_over_time_figure(forecasts, selected, figures_destination))
     for dimension in ("horizon", "month", "regime"):
         figure_paths.extend(
             _error_dimension_figure(

@@ -13,6 +13,7 @@ from tourism_forecasting.final_artifacts import (
     macro_fold_scaled_metrics,
     paired_loss_comparisons,
     pooled_metrics,
+    publication_scope_status,
 )
 
 
@@ -133,6 +134,22 @@ def test_macro_fold_scaled_metrics_keeps_fold_specific_scale_explicit() -> None:
     assert result["observations_across_folds"] == 21
 
 
+def test_publication_scope_status_keeps_unavailable_extensions_explicit() -> None:
+    unavailable = publication_scope_status(run_id="run_test").set_index("deliverable")
+    assert unavailable.loc["2026_external_validation", "status"] == "not_yet_generated"
+    result = publication_scope_status(
+        run_id="run_test", external_2026_available=True
+    )
+    panel = result.set_index("deliverable")
+    assert panel.loc["2026_external_validation", "status"] == (
+        "completed_at_quarterly_aggregate_only"
+    )
+    assert panel.loc["source_country_arrivals_and_digital_intent_panel", "status"] == (
+        "not_estimable_from_available_inputs"
+    )
+    assert panel.loc["shap_ale_or_pdp", "status"] == "not_applicable_to_selected_evidence"
+
+
 def test_build_publication_artifacts_from_explicit_synthetic_file(tmp_path: Path) -> None:
     source = tmp_path / "runs" / "run_synthetic" / "forecasts" / "rolling_origin_forecasts.csv"
     source.parent.mkdir(parents=True)
@@ -147,9 +164,11 @@ def test_build_publication_artifacts_from_explicit_synthetic_file(tmp_path: Path
         figures_dir=tmp_path / "figures",
         bootstrap_repetitions=50,
     )
-    assert len(artifacts.tables) == 7
-    assert len(artifacts.figures) == 10
+    assert len(artifacts.tables) == 8
+    assert len(artifacts.figures) == 14
     assert all(path.is_file() and path.stat().st_size > 0 for path in artifacts.tables)
     assert all(path.is_file() and path.stat().st_size > 0 for path in artifacts.figures)
     horizon = pd.read_csv(tmp_path / "tables" / "publication_metrics_by_horizon_full_support.csv")
     assert set(horizon["horizon"]) == set(range(1, 13))
+    assert (tmp_path / "figures" / "publication_validation_design.png").is_file()
+    assert (tmp_path / "figures" / "publication_absolute_error_over_time.svg").is_file()

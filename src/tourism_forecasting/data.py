@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from tourism_forecasting.paths import resolve_from_root
+from tourism_forecasting.paths import repository_root, resolve_from_root
 
 DATE_PATTERN = re.compile(r"^\d{4}-(?:[1-9]|1[0-2])$")
 SOURCE_TO_INTERNAL = {
@@ -60,6 +60,15 @@ def sha256_file(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _logical_source_path(path: Path) -> str:
+    """Return a portable provenance label without exposing a workstation path."""
+
+    try:
+        return path.resolve().relative_to(repository_root().resolve()).as_posix()
+    except ValueError:
+        return path.name
 
 
 def _decode_csv(raw: bytes) -> tuple[str, str]:
@@ -179,7 +188,7 @@ def load_core_data(
     )
     unexpected = sorted(set(source.columns) - set(SOURCE_TO_INTERNAL))
     audit = CoreDataAudit(
-        path=str(source_path),
+        path=_logical_source_path(source_path),
         sha256=hashlib.sha256(raw).hexdigest(),
         byte_count=len(raw),
         encoding=encoding,

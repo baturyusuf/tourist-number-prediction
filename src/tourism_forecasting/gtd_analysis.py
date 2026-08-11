@@ -38,6 +38,13 @@ ANALYSIS_END = pd.Timestamp("2020-12-01")
 FORECAST_START = pd.Timestamp("2015-01-01")
 TARGET_DELAY_MONTHS = 3
 RANDOM_SEED = 20250811
+ASSOCIATION_LAGS = (0, 1, 2, 3, 6, 12)
+GTD_REQUIRED_CITATION = (
+    "START (National Consortium for the Study of Terrorism and Responses to Terrorism). "
+    "(2022). Global Terrorism Database, 1970–2020 [data file]. "
+    "https://www.start.umd.edu/data-tools/GTD"
+)
+GTD_COPYRIGHT = "Copyright University of Maryland 2022."
 
 
 def _numeric(events: pd.DataFrame, column: str) -> pd.Series:
@@ -52,6 +59,10 @@ def gtd_definition_subsets(events: pd.DataFrame) -> dict[str, pd.DataFrame]:
     criteria = pd.concat([_numeric(events, f"crit{number}") for number in (1, 2, 3)], axis=1)
     latitude = _numeric(events, "latitude")
     longitude = _numeric(events, "longitude")
+    fatalities = _numeric(events, "nkill").mask(lambda values: values < 0)
+    injuries = _numeric(events, "nwound").mask(lambda values: values < 0)
+    severity_complete = fatalities.notna() & injuries.notna()
+    complete_case_casualties = fatalities + injuries
     coordinate_known = latitude.notna() & longitude.notna()
     distances = np.column_stack(
         [
@@ -71,6 +82,9 @@ def gtd_definition_subsets(events: pd.DataFrame) -> dict[str, pd.DataFrame]:
         "strict_known_coordinates": events.loc[strict & coordinate_known],
         "within_100km_tourism_centers": events.loc[near_tourism_center],
         "strict_within_100km_tourism_centers": events.loc[strict & near_tourism_center],
+        "high_severity_complete_case_ge10": events.loc[
+            severity_complete & complete_case_casualties.ge(10)
+        ],
     }
 
 
@@ -152,52 +166,81 @@ def association_sensitivity(
     core: pd.DataFrame,
     monthly_by_definition: Mapping[str, pd.DataFrame],
 ) -> pd.DataFrame:
-    """Estimate contemporaneous non-causal associations with GTD method-break controls."""
+    """Estimate prespecified lag associations with GTD method-break controls."""
 
     target = core.set_index("date")["target_original_with_missing"].loc[ANALYSIS_START:ANALYSIS_END]
     records: list[dict[str, object]] = []
     for definition, monthly in monthly_by_definition.items():
-        risk = monthly.set_index("date")["incidents"].rename("monthly_incidents")
-        data = pd.concat([target.rename("target"), risk], axis=1).dropna()
-        data["log_target"] = np.log1p(data["target"])
-        data["trend_years"] = np.arange(len(data), dtype=float) / 12
-        data["post_2008_04"] = (data.index >= pd.Timestamp("2008-04-01")).astype(float)
-        data["post_2012_01"] = (data.index >= pd.Timestamp("2012-01-01")).astype(float)
-        month_dummies = pd.get_dummies(
-            data.index.month, prefix="month", drop_first=True, dtype=float
-        )
-        month_dummies.index = data.index
-        design = pd.concat(
-            [
-                data[["monthly_incidents", "trend_years", "post_2008_04", "post_2012_01"]],
-                month_dummies,
-            ],
-            axis=1,
-        )
-        fitted = sm.OLS(data["log_target"], sm.add_constant(design), missing="drop").fit(
-            cov_type="HAC", cov_kwds={"maxlags": 12}
-        )
-        coefficient = float(fitted.params["monthly_incidents"])
-        interval = fitted.conf_int().loc["monthly_incidents"]
-        records.append(
-            {
-                "definition": definition,
-                "outcome": "log1p_monthly_departing_visitors",
-                "security_term": "contemporaneous_monthly_incidents",
-                "target_months": len(data),
-                "coefficient_log_points_per_incident": coefficient,
-                "hac_standard_error": float(fitted.bse["monthly_incidents"]),
-                "hac_p_value": float(fitted.pvalues["monthly_incidents"]),
-                "hac_95_ci_lower": float(interval.iloc[0]),
-                "hac_95_ci_upper": float(interval.iloc[1]),
-                "approx_percent_difference_per_incident": 100 * np.expm1(coefficient),
-                "controls": (
-                    "calendar-month indicators; linear trend; GTD method breaks 2008-04 and 2012-01"
-                ),
-                "interpretation": "descriptive association only; not causal evidence",
-            }
-        )
-    return pd.DataFrame(records)
+        incidents = monthly.set_index("date")["incidents"]
+        for lag in ASSOCIATION_LAGS:
+            risk = incidents.shift(lag).rename("monthly_incidents")
+            data = pd.concat([target.rename("target"), risk], axis=1).dropna()
+            data["log_target"] = np.log1p(data["target"])
+            data["trend_years"] = np.arange(len(data), dtype=float) / 12
+            data["post_2008_04"] = (data.index >= pd.Timestamp("2008-04-01")).astype(float)
+            data["post_2012_01"] = (data.index >= pd.Timestamp("2012-01-01")).astype(float)
+            month_dummies = pd.get_dummies(
+                data.index.month, prefix="month", drop_first=True, dtype=float
+            )
+            month_dummies.index = data.index
+            design = pd.concat(
+                [
+                    data[
+                        [
+                            "monthly_incidents",
+                            "trend_years",
+                            "post_2008_04",
+                            "post_2012_01",
+                        ]
+                    ],
+                    month_dummies,
+                ],
+                axis=1,
+            )
+            fitted = sm.OLS(data["log_target"], sm.add_constant(design), missing="drop").fit(
+                cov_type="HAC", cov_kwds={"maxlags": 12}
+            )
+            coefficient = float(fitted.params["monthly_incidents"])
+            interval = fitted.conf_int().loc["monthly_incidents"]
+            records.append(
+                {
+                    "definition": definition,
+                    "incident_lag_months": lag,
+                    "outcome": "log1p_monthly_departing_visitors",
+                    "security_term": f"monthly_incidents_lag_{lag}",
+                    "target_months": len(data),
+                    "coefficient_log_points_per_incident": coefficient,
+                    "hac_standard_error": float(fitted.bse["monthly_incidents"]),
+                    "hac_p_value": float(fitted.pvalues["monthly_incidents"]),
+                    "hac_95_ci_lower": float(interval.iloc[0]),
+                    "hac_95_ci_upper": float(interval.iloc[1]),
+                    "approx_percent_difference_per_incident": 100 * np.expm1(coefficient),
+                    "controls": (
+                        "calendar-month indicators; linear trend; GTD method breaks 2008-04 "
+                        "and 2012-01"
+                    ),
+                    "interpretation": "descriptive association only; not causal evidence",
+                }
+            )
+    result = pd.DataFrame(records)
+    result["bh_adjusted_p_value_family_all_definition_lag_tests"] = _benjamini_hochberg(
+        result["hac_p_value"].to_numpy(dtype=float)
+    )
+    result["multiple_testing_family_size"] = len(result)
+    return result
+
+
+def _benjamini_hochberg(p_values: np.ndarray) -> np.ndarray:
+    """Benjamini-Hochberg adjustment over one prespecified family."""
+
+    values = np.asarray(p_values, dtype=float)
+    order = np.argsort(values, kind="stable")
+    ranked = values[order]
+    adjusted_ranked = ranked * len(values) / np.arange(1, len(values) + 1)
+    adjusted_ranked = np.minimum.accumulate(adjusted_ranked[::-1])[::-1].clip(0, 1)
+    adjusted = np.empty_like(adjusted_ranked)
+    adjusted[order] = adjusted_ranked
+    return adjusted
 
 
 def _base_forecast_features(target: pd.Series) -> pd.DataFrame:
@@ -335,12 +378,28 @@ def _write_method_note(
 ) -> None:
     broad = summary.loc[summary["definition"].eq("broad_all_gtd")].iloc[0]
     best = predictive.sort_values("b4_mae_skill_vs_b0", ascending=False).iloc[0]
+    mae_consistency = (
+        "The MAE evidence is consistent across definitions: every block-bootstrap interval is "
+        "below zero."
+        if predictive["block_bootstrap_95_ci_upper"].lt(0).all()
+        else "MAE evidence is not consistent across definitions because at least one "
+        "block-bootstrap interval includes zero."
+    )
+    rmse_summary = (
+        "RMSE worsens for every definition."
+        if predictive["b4_rmse_skill_vs_b0"].lt(0).all()
+        else "RMSE results are mixed across definitions."
+    )
     text = f"""# GTD aggregate robustness analysis
 
 This licensed-data analysis uses only selected GTD fields in memory and writes no event-level or
 monthly derivative. The source workbook SHA-256 is `{source_sha256}`. Outputs are aggregate
-definition summaries, model summaries, and an annual figure; redistribution remains subject to the
+definition summaries, model summaries, and aggregate figures; redistribution remains subject to the
 GTD end-user license.
+
+Required citation: {GTD_REQUIRED_CITATION}
+
+{GTD_COPYRIGHT}
 
 ## Coverage and coding
 
@@ -349,17 +408,28 @@ zeros after GTD coverage ends. The broad definition contains {int(broad['inciden
 Unknown month is excluded, unknown success remains unknown, missing coordinates remain unknown, and
 severity is summed only for events with both fatality and injury fields observed. The tables report
 the incomplete-severity and missing-coordinate shares. Sensitivities cover `doubtterr == 0`, all
-three GTD criteria plus `doubtterr == 0`, successful events, coordinate-known events, events within
-100 km of a prespecified tourism center, and strict intersections. Hotel/resort targets are reported
-separately from the broader tourism and transport target flag.
+three GTD criteria plus `doubtterr == 0`, successful events, coordinate-known events, complete-case
+casualty severity of at least 10 (`fatalities + injuries`), events within 100 km of a prespecified
+tourism center, and strict intersections. The severity threshold is a prespecified robustness
+definition, not tuned; partial casualty cases remain unknown and are never recoded to zero.
+Hotel/resort targets are reported separately from the broader tourism and transport target flag.
+
+The 100-km spatial sensitivity uses Istanbul (41.0082, 28.9784), Antalya (36.8969, 30.7133),
+Muğla (37.2153, 28.3636), İzmir (38.4237, 27.1428), and Nevşehir/Cappadocia
+(38.6244, 34.7239), with great-circle distance calculated by the haversine formula. These five
+manually frozen WGS84 reference points are approximate city centers, not administrative boundaries
+or a separately sourced coordinate product. They represent major tourism geographies but are not a
+comprehensive map of Türkiye; events near other destinations can therefore be classified as outside
+the radius.
 
 ## Association analysis
 
-The descriptive regressions relate log monthly visitors to contemporaneous monthly incident counts.
-They include calendar-month indicators, a linear trend, and GTD method indicators at April 2008 and
-January 2012. HAC standard errors use 12 lags. These estimates are associations, not predictive or
-causal effects; source construction, omitted shocks, simultaneity, and measurement error preclude
-causal wording. Availability-lagged security features are used only in the predictive sensitivity.
+The descriptive regressions relate log monthly visitors to incident counts at prespecified lags of
+0, 1, 2, 3, 6, and 12 months, one lag per regression. They include calendar-month indicators, a
+linear trend, and GTD method indicators at April 2008 and January 2012. HAC standard errors use 12
+lags. Benjamini-Hochberg adjusted p-values cover the full definition-by-lag family. These estimates
+are associations, not causal effects; source construction, omitted shocks, simultaneity, and
+measurement error preclude causal wording.
 
 ## Predictive-value sensitivity
 
@@ -373,8 +443,9 @@ not a fact. Models are prespecified ridge regressions (`alpha=10`) and block-boo
 
 The largest point-estimate B4 MAE skill is {best['b4_mae_skill_vs_b0']:.1%} for
 `{best['security_definition']}`; its block-bootstrap interval for B4 minus B0 absolute loss is
-[{best['block_bootstrap_95_ci_lower']:,.0f}, {best['block_bootstrap_95_ci_upper']:,.0f}]. A point
-estimate is not treated as reliable incremental value when that interval crosses zero.
+[{best['block_bootstrap_95_ci_lower']:,.0f}, {best['block_bootstrap_95_ci_upper']:,.0f}].
+{mae_consistency} {rmse_summary} The final retrospective GTD snapshot has no issue-date archive;
+these sensitivities therefore do not establish an operational forecasting gain.
 
 ## Artifact boundary
 
@@ -382,6 +453,7 @@ estimate is not treated as reliable incremental value when that interval crosses
 - `gtd_association_sensitivity.csv`: aggregate HAC coefficients only.
 - `gtd_predictive_common_sample.csv`: aggregate common-sample error metrics only.
 - `gtd_annual_security_sensitivity.(png|svg)`: annual broad/strict counts and coordinate coverage.
+- `gtd_lag_association_sensitivity.(png|svg)`: aggregate lag-response estimates and 95% CIs.
 
 No GTD event row, identifier, narrative, actor, source citation, codebook, or monthly derivative is
 included in the repository.
@@ -467,11 +539,55 @@ def build_gtd_robustness_artifacts(
     fig.text(
         0.01,
         -0.01,
-        "Source: licensed GTD 1970-2020 distribution; aggregate calculations only. "
-        "No post-2020 zero fill.",
+        "Source: START (National Consortium for the Study of Terrorism and Responses to "
+        "Terrorism).\n"
+        "(2022). Global Terrorism Database, 1970–2020 [data file]. "
+        "https://www.start.umd.edu/data-tools/GTD\n"
+        f"{GTD_COPYRIGHT} Aggregate calculations only; no post-2020 zero fill.",
         fontsize=8,
     )
     artifacts.extend(save_figure(fig, figures / "gtd_annual_security_sensitivity"))
+
+    selected_associations = {
+        "broad_all_gtd": "Broad GTD",
+        "strict_all_criteria_doubtterr_zero": "Strict criteria",
+        "successful_only": "Successful only",
+        "within_100km_tourism_centers": "Within 100 km of five centers",
+    }
+    fig, axis = plt.subplots(figsize=(10, 5.8))
+    for definition, label in selected_associations.items():
+        values = association.loc[association["definition"].eq(definition)].sort_values(
+            "incident_lag_months"
+        )
+        point = 100 * np.expm1(values["coefficient_log_points_per_incident"])
+        lower = 100 * np.expm1(values["hac_95_ci_lower"])
+        upper = 100 * np.expm1(values["hac_95_ci_upper"])
+        axis.errorbar(
+            values["incident_lag_months"],
+            point,
+            yerr=np.vstack([point - lower, upper - point]),
+            marker="o",
+            capsize=3,
+            linewidth=1.2,
+            label=label,
+        )
+    axis.axhline(0, color="#666666", linewidth=0.8)
+    axis.set_xticks(ASSOCIATION_LAGS)
+    axis.set_xlabel("Incident lag (months; past incidents predicting current visitors)")
+    axis.set_ylabel("Approximate visitor difference per incident (%)")
+    axis.set_title("GTD lag-response associations (descriptive, noncausal)", loc="left")
+    axis.legend(frameon=False, ncol=2)
+    fig.text(
+        0.01,
+        -0.02,
+        "Source: START (National Consortium for the Study of Terrorism and Responses to "
+        "Terrorism).\n"
+        "(2022). Global Terrorism Database, 1970–2020 [data file]. "
+        "https://www.start.umd.edu/data-tools/GTD\n"
+        f"{GTD_COPYRIGHT} HAC 95% CIs; full-family BH adjustment is reported in the table.",
+        fontsize=8,
+    )
+    artifacts.extend(save_figure(fig, figures / "gtd_lag_association_sensitivity"))
 
     method_note = docs / "gtd_robustness.md"
     _write_method_note(method_note, summary, association, predictive, sha256_file(source))
@@ -514,12 +630,18 @@ def build_gtd_robustness_artifacts(
             "forecast_protocol": "statistical_association_hac_common_sample",
             "feature_block": "B4_security_risk",
             "exact_features": {
-                "security": "contemporaneous monthly incident count",
-                "sensitivities": association["definition"].tolist(),
+                "security": "monthly incident count at one prespecified lag per regression",
+                "lags_months": list(ASSOCIATION_LAGS),
+                "sensitivities": sorted(association["definition"].unique().tolist()),
                 "controls": "month indicators, linear trend, 2008-04 and 2012-01 breaks",
+                "multiple_testing": "Benjamini-Hochberg across all definition-by-lag tests",
             },
             "model": "ols_hac12_noncausal_association",
-            "hyperparameters": {"hac_lags": 12},
+            "hyperparameters": {
+                "hac_lags": 12,
+                "security_lags_months": list(ASSOCIATION_LAGS),
+                "multiple_testing": "Benjamini-Hochberg",
+            },
             "random_seed": None,
             "per_fold_metrics_path": "",
             "aggregate_metrics": association.to_dict(orient="records"),

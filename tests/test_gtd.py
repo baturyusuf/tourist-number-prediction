@@ -1,8 +1,18 @@
 import numpy as np
 import pandas as pd
 
-from tourism_forecasting.gtd import GTD_ANALYSIS_COLUMNS, aggregate_gtd_monthly, haversine_km
+from tourism_forecasting.gtd import (
+    GTD_ANALYSIS_COLUMNS,
+    TOURISM_CENTERS,
+    aggregate_gtd_monthly,
+    haversine_km,
+)
 from tourism_forecasting.gtd_analysis import (
+    ASSOCIATION_LAGS,
+    GTD_COPYRIGHT,
+    GTD_REQUIRED_CITATION,
+    _benjamini_hochberg,
+    _write_method_note,
     aggregate_definition_sensitivities,
     association_sensitivity,
     gtd_definition_subsets,
@@ -12,6 +22,13 @@ from tourism_forecasting.gtd_analysis import (
 
 def test_haversine_known_distance() -> None:
     assert np.isclose(float(haversine_km(0, 0, 0, 1)), 111.195, atol=0.1)
+    assert set(TOURISM_CENTERS) == {
+        "Istanbul",
+        "Antalya",
+        "Mugla",
+        "Izmir",
+        "Nevsehir_Cappadocia",
+    }
 
 
 def test_gtd_monthly_aggregation_does_not_extend_post_coverage() -> None:
@@ -78,6 +95,8 @@ def test_gtd_definition_filters_preserve_unknowns() -> None:
             "crit3": [1, 0, 1],
             "latitude": [41.0, np.nan, 39.0],
             "longitude": [29.0, np.nan, np.nan],
+            "nkill": [10, np.nan, 4],
+            "nwound": [0, 20, 5],
         }
     )
     definitions = gtd_definition_subsets(events)
@@ -87,6 +106,8 @@ def test_gtd_definition_filters_preserve_unknowns() -> None:
     assert len(definitions["successful_only"]) == 1
     assert len(definitions["known_coordinates_only"]) == 1
     assert len(definitions["within_100km_tourism_centers"]) == 1
+    assert len(definitions["high_severity_complete_case_ge10"]) == 1
+    assert definitions["high_severity_complete_case_ge10"].index.tolist() == [0]
 
 
 def test_gtd_aggregate_analysis_does_not_extend_after_2020() -> None:
@@ -100,7 +121,7 @@ def test_gtd_aggregate_analysis_does_not_extend_after_2020() -> None:
             "crit3": [1, 1],
             "doubtterr": [0, 0],
             "success": [1, 1],
-            "nkill": [1, np.nan],
+            "nkill": [10, np.nan],
             "nwound": [0, 1],
             "latitude": [41.0, np.nan],
             "longitude": [29.0, np.nan],
@@ -124,11 +145,23 @@ def test_gtd_association_includes_both_method_break_controls() -> None:
         }
     )
     monthly = pd.DataFrame({"date": dates, "incidents": np.arange(len(dates)) % 7})
-    result = association_sensitivity(core, {"synthetic": monthly})
-    assert len(result) == 1
-    assert "2008-04" in result.loc[0, "controls"]
-    assert "2012-01" in result.loc[0, "controls"]
-    assert result.loc[0, "interpretation"] == "descriptive association only; not causal evidence"
+    result = association_sensitivity(core, {"synthetic": monthly, "synthetic_2": monthly})
+    assert len(result) == 2 * len(ASSOCIATION_LAGS)
+    for _, group in result.groupby("definition", sort=False):
+        assert tuple(group["incident_lag_months"]) == ASSOCIATION_LAGS
+    assert result["controls"].str.contains("2008-04").all()
+    assert result["controls"].str.contains("2012-01").all()
+    assert result["interpretation"].eq("descriptive association only; not causal evidence").all()
+    assert result["multiple_testing_family_size"].eq(2 * len(ASSOCIATION_LAGS)).all()
+    assert result["bh_adjusted_p_value_family_all_definition_lag_tests"].between(0, 1).all()
+
+
+def test_benjamini_hochberg_is_monotone_in_ranked_p_values() -> None:
+    raw = np.array([0.04, 0.001, 0.20, 0.03])
+    adjusted = _benjamini_hochberg(raw)
+    order = np.argsort(raw)
+    assert np.all(np.diff(adjusted[order]) >= 0)
+    assert np.all(adjusted >= raw)
 
 
 def test_gtd_predictive_output_is_aggregate_common_sample() -> None:
@@ -141,3 +174,38 @@ def test_gtd_predictive_output_is_aggregate_common_sample() -> None:
     assert result.loc[0, "evaluated_months"] == 72
     assert "date" not in result.columns
     assert "forecast" not in result.columns
+
+
+def test_gtd_method_note_has_required_citation_and_correct_mae_rmse_interpretation(
+    tmp_path,
+) -> None:
+    summary = pd.DataFrame([{"definition": "broad_all_gtd", "incidents": 10}])
+    predictive = pd.DataFrame(
+        [
+            {
+                "security_definition": "broad_all_gtd",
+                "b4_mae_skill_vs_b0": 0.05,
+                "block_bootstrap_95_ci_lower": -10.0,
+                "block_bootstrap_95_ci_upper": -1.0,
+                "b4_rmse_skill_vs_b0": -0.02,
+            },
+            {
+                "security_definition": "successful_only",
+                "b4_mae_skill_vs_b0": 0.04,
+                "block_bootstrap_95_ci_lower": -8.0,
+                "block_bootstrap_95_ci_upper": -0.5,
+                "b4_rmse_skill_vs_b0": -0.01,
+            },
+        ]
+    )
+    destination = tmp_path / "gtd_note.md"
+    _write_method_note(destination, summary, pd.DataFrame(), predictive, "abc")
+    text = destination.read_text(encoding="utf-8")
+    assert GTD_REQUIRED_CITATION in text
+    assert GTD_COPYRIGHT in text
+    assert "every block-bootstrap interval is below zero" in text
+    assert "RMSE worsens for every definition" in text
+    assert "do not establish an operational forecasting gain" in text
+    assert "Istanbul (41.0082, 28.9784)" in text
+    assert "Nevşehir/Cappadocia" in text
+    assert "manually frozen WGS84 reference points" in text

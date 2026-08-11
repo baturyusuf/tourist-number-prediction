@@ -204,6 +204,14 @@ docs/source/**
 **/*gtd*.csv
 **/*gtd*.xlsx
 **/*gtd*codebook*
+# License-safe aggregate outputs are explicitly reviewable and publishable. Raw source directories
+# above remain ignored, and no event-level/monthly GTD derivative is permitted in these locations.
+!reports/tables/gtd_definition_sensitivity_summary.csv
+!reports/tables/gtd_association_sensitivity.csv
+!reports/tables/gtd_predictive_common_sample.csv
+!results/runs/gtd_*/gtd_aggregate/gtd_definition_sensitivity_summary.csv
+!results/runs/gtd_*/gtd_aggregate/gtd_association_sensitivity.csv
+!results/runs/gtd_*/gtd_aggregate/gtd_predictive_common_sample.csv
 
 # Reproducible-pipeline caches and large intermediates
 data/interim/**

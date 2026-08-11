@@ -38,3 +38,25 @@ def test_restricted_paths_are_git_ignored() -> None:
             ["git", "check-ignore", "-q", path], check=False, capture_output=True
         )
         assert result.returncode == 0, path
+
+
+def test_license_safe_gtd_aggregate_tables_are_not_hidden_by_gitignore() -> None:
+    allowed = [
+        "reports/tables/gtd_definition_sensitivity_summary.csv",
+        (
+            "results/runs/gtd_example/gtd_aggregate/"
+            "gtd_predictive_common_sample.csv"
+        ),
+    ]
+    for path in allowed:
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", path], check=False, capture_output=True
+        )
+        assert result.returncode == 1, path
+    prohibited_near_miss = "reports/tables/gtd_event_rows.csv"
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", prohibited_near_miss],
+        check=False,
+        capture_output=True,
+    )
+    assert result.returncode == 0, prohibited_near_miss
