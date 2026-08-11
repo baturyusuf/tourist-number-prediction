@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tourism-forecasting"
+version = "0.1.0"
+description = "Leakage-aware monthly tourism-demand forecasting and reproducibility pipeline"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { text = "MIT (code only; data retain their original licenses)" }
+authors = [{ name = "Research team" }]
+dependencies = [
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<3",
+  "scipy>=1.13,<2",
+  "scikit-learn>=1.5,<2",
+  "statsmodels>=0.14.4,<0.15",
+  "matplotlib>=3.9,<4",
+  "seaborn>=0.13,<0.14",
+  "openpyxl>=3.1,<4",
+  "python-docx>=1.1,<2",
+  "tabulate>=0.9,<1",
+  "xgboost>=2.1,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<10",
+  "pytest-cov>=5,<8",
+  "ruff>=0.7,<1",
+]
+extended = [
+  "optuna>=4,<5",
+  "shap>=0.46,<1",
+  "lightgbm>=4.5,<5",
+  "catboost>=1.2,<2",
+]
+
+[project.scripts]
+tourism-audit = "tourism_forecasting.cli:audit"
+tourism-backtest = "tourism_forecasting.cli:backtest"
+tourism-reproduce = "tourism_forecasting.cli:reproduce"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,0 +1,62 @@
+[project]
+seed = 20250811
+timezone = "Europe/Istanbul"
+
+[data]
+core_csv = "data/raw/turizm_kisi_Reel_HICP_Trend.csv"
+date_column = "Yil-Ay"
+target_column = "Ziyaretci"
+expected_start = "2008-01"
+expected_end = "2025-12"
+expected_frequency = "MS"
+
+[availability_lags]
+# Conservative completed-month delays. The target delay is an explicit operational sensitivity
+# because a historical issue-date archive for the quarterly survey release was not supplied.
+target_publication_delay_months = 3
+reer_cpi_developed_2025eq100 = 1
+ea_hicp_air_passenger_yoy_pct = 1
+search_interest_legacy_unverified = 1
+
+[features]
+target_lags = [1, 2, 3, 6, 12, 13, 18, 24]
+rolling_windows = [3, 6, 12, 24]
+fourier_order = 2
+seasonal_period = 12
+include_rolling_median = true
+include_rolling_std = true
+include_expanding_mean = true
+
+[validation]
+rolling_start = "2015-01"
+rolling_end = "2025-12"
+fixed_origin_first_year = 2015
+fixed_origin_last_year = 2025
+seasonal_period = 12
+minimum_train_months = 60
+
+[models.ridge]
+"model__alpha" = [0.1, 1.0, 10.0, 100.0]
+
+[models.hist_gradient_boosting]
+"model__learning_rate" = [0.03, 0.07]
+"model__max_leaf_nodes" = [7, 15]
+"model__l2_regularization" = [1.0, 10.0]
+"model__max_iter" = [200]
+
+[models.extra_trees]
+"model__max_depth" = [5, 9]
+"model__min_samples_leaf" = [2, 4, 8]
+
+[models.xgboost]
+"model__learning_rate" = [0.02, 0.05]
+"model__max_depth" = [2, 3]
+"model__min_child_weight" = [3, 8]
+"model__subsample" = [0.8]
+"model__colsample_bytree" = [0.8]
+"model__reg_lambda" = [10.0, 30.0]
+
+[outputs]
+results_dir = "results"
+tables_dir = "reports/tables"
+figures_dir = "reports/figures"

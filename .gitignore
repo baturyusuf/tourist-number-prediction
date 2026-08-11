@@ -166,6 +166,7 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+.idea/
 
 # Ruff stuff:
 .ruff_cache/
@@ -179,3 +180,47 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Project-local credentials and private configuration
+.env*
+!.env.example
+*kaggle*.json
+kaggle.json
+*.pem
+*.key
+cookies*.txt
+
+# Supplied/private/licensed source material (never commit raw copies)
+data/raw/**
+!data/raw/.gitkeep
+data/kaggle/**
+!data/kaggle/.gitkeep
+data/external/**
+!data/external/.gitkeep
+docs/source/**
+!docs/source/.gitkeep
+**/*global*terrorism*.csv
+**/*global*terrorism*.xlsx
+**/*gtd*.csv
+**/*gtd*.xlsx
+**/*gtd*codebook*
+
+# Reproducible-pipeline caches and large intermediates
+data/interim/**
+!data/interim/.gitkeep
+data/processed/**
+!data/processed/.gitkeep
+models/
+.cache/
+.codex_tmp/
+*.parquet
+*.feather
+*.joblib
+
+# Local generated QA artifacts
+docs/rendered/
+reports/qa/
+
+# Platform noise
+.DS_Store
+Thumbs.db
