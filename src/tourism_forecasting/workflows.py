@@ -173,6 +173,18 @@ def backtest_workflow(*, include_ml: bool = True, tune_ml: bool = True) -> list[
         outputs.append(
             backtest_tabular_fixed_origin(
                 frame,
+                one_step,
+                model_names=("ridge", "hist_gradient_boosting"),
+                feature_spec=feature_spec,
+                seed=int(project["seed"]),
+                tune=False,
+                target_publication_delay_months=target_delay,
+                parameter_grids=config.section("models"),
+            )
+        )
+        outputs.append(
+            backtest_tabular_fixed_origin(
+                frame,
                 fixed,
                 model_names=("ridge", "hist_gradient_boosting", "extra_trees", "xgboost"),
                 feature_spec=feature_spec,
@@ -200,6 +212,8 @@ def backtest_workflow(*, include_ml: bool = True, tune_ml: bool = True) -> list[
 
 Seasonal naive is the mandatory reference. Positive skill means lower loss than seasonal naive.
 Protocols are separate; values from incompatible tasks must not be compared as one competition.
+`pooled_full_*` reports every evaluable model target. `pooled_paired_*` and skill use the exact
+model/seasonal-naive common support. Macro-fold quantities remain in the CSV artifact.
 
 """
         + leaderboard_markdown(combined.leaderboard)
@@ -208,6 +222,37 @@ Protocols are separate; values from incompatible tasks must not be compared as o
     resolve_from_root("LEADERBOARD.md").write_text(markdown, encoding="utf-8")
 
     initialize_registry()
+    baseline_configurations: dict[str, dict[str, object]] = {
+        "naive_last": {"rule": "last available observed target"},
+        "seasonal_naive": {
+            "seasonal_period": 12,
+            "unavailable_reference_policy": "recursive preceding-season projection",
+        },
+        "drift": {"rule": "last available level plus calendar-month drift"},
+        "same_month_historical_mean": {"calendar_month_climatology": True},
+        "seasonal_moving_average_3": {"seasonal_period": 12, "prior_seasons": 3},
+        "ets_holt_winters": {
+            "trend": "additive_damped",
+            "seasonal": "additive",
+            "seasonal_period": 12,
+        },
+        "theta": {"seasonal_period": 12, "deseasonalize": True},
+        "sarima_111_111_12": {
+            "order": [1, 1, 1],
+            "seasonal_order": [1, 1, 1, 12],
+            "trend": "constant",
+        },
+        "dynamic_harmonic_arima_k2": {
+            "arima_order": [1, 1, 1],
+            "fourier_order": 2,
+            "seasonal_period": 12,
+        },
+        "stl_arima_111": {
+            "decomposition": "robust_STL",
+            "seasonal_period": 12,
+            "remainder_order": [1, 1, 1],
+        },
+    }
     for (protocol, model), group in combined.fold_metrics.groupby(
         ["protocol", "model"], dropna=False
     ):
@@ -222,6 +267,25 @@ Protocols are separate; values from incompatible tasks must not be compared as o
             .drop(columns=["protocol", "model"], errors="ignore")
             .to_dict(orient="records")
         )
+        is_tabular = str(model).endswith("_recursive_b0")
+        base_model = str(model).removesuffix("_recursive_b0")
+        fold_notes = sorted(set(group.get("notes", pd.Series(dtype="string")).dropna().astype(str)))
+        if is_tabular:
+            exact_features: object = asdict(feature_spec)
+            hyperparameters: object = {
+                "candidate_grid": config.section("models").get(base_model, {}),
+                "fold_notes": fold_notes,
+            }
+            feature_block = "B0_target_history_calendar"
+            random_seed: int | None = int(project["seed"])
+        else:
+            exact_features = {"target_history": True, "calendar_index": "model_internal"}
+            hyperparameters = {
+                "configuration": baseline_configurations.get(str(model), {}),
+                "fold_notes": fold_notes,
+            }
+            feature_block = "B0_univariate_target_history"
+            random_seed = None
         append_experiment(
             {
                 "data_checksum": audit.sha256,
@@ -232,15 +296,11 @@ Protocols are separate; values from incompatible tasks must not be compared as o
                 "validation_folds": group["fold_id"].dropna().tolist(),
                 "forecast_horizon": "1" if protocol == "one_step_ex_ante" else "1..12",
                 "forecast_protocol": protocol,
-                "feature_block": "B0_target_history_calendar",
-                "exact_features": asdict(feature_spec),
+                "feature_block": feature_block,
+                "exact_features": exact_features,
                 "model": model,
-                "hyperparameters": {
-                    "fold_notes": sorted(
-                        set(group.get("notes", pd.Series(dtype="string")).dropna().astype(str))
-                    )
-                },
-                "random_seed": int(project["seed"]),
+                "hyperparameters": hyperparameters,
+                "random_seed": random_seed,
                 "per_fold_metrics_path": artifacts[0]
                 .relative_to(resolve_from_root("."))
                 .as_posix(),

@@ -269,12 +269,15 @@ def leaderboard_markdown(leaderboard: pd.DataFrame) -> str:
             "protocol",
             "model",
             "folds",
-            "observations",
-            "mae",
-            "rmse",
-            "smape",
-            "mase",
-            "mae_skill_vs_seasonal_naive",
+            "pooled_full_n",
+            "pooled_full_mae",
+            "pooled_full_rmse",
+            "pooled_full_smape",
+            "pooled_paired_n",
+            "pooled_paired_mae",
+            "pooled_paired_seasonal_naive_mae",
+            "pooled_paired_mae_skill_vs_seasonal_naive",
+            "pooled_full_interval_95_coverage",
         ]
         if column in leaderboard
     ]
