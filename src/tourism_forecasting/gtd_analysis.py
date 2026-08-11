@@ -536,6 +536,7 @@ def build_gtd_robustness_artifacts(
     axes[1].set_ylabel("Known coordinates (%)")
     axes[1].set_xlabel("Year")
     axes[1].set_ylim(0, 105)
+    fig.set_layout_engine(None)
     fig.subplots_adjust(bottom=0.23)
     fig.text(
         0.01,
@@ -578,6 +579,7 @@ def build_gtd_robustness_artifacts(
     axis.set_ylabel("Approximate visitor difference per incident (%)")
     axis.set_title("GTD lag-response associations (descriptive, noncausal)", loc="left")
     axis.legend(frameon=False, ncol=2)
+    fig.set_layout_engine(None)
     fig.subplots_adjust(bottom=0.28)
     fig.text(
         0.01,

@@ -47,6 +47,11 @@ def migrate() -> int:
             "Run invalidated before publication: generated aggregate figures had overlapping "
             "source notes; corrected clean-source rerun retained separately",
         ),
+        "gtd_20260811T171833Z_a4e00dcf": (
+            "superseded_publication_figure_layout_engine",
+            "Run invalidated before publication: the global constrained-layout engine rejected "
+            "the reserved footer space; corrected clean-source rerun retained separately",
+        ),
     }
     invalid_gtd = frame["run_id"].isin(invalid_gtd_reasons)
     for index in frame.index[invalid_gtd]:
