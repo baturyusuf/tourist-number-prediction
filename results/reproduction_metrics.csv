@@ -1,0 +1,2 @@
+experiment_id,protocol,model,target_definition,train_start,train_end,test_start,test_end,data_sha256,n,mae,rmse,mape,smape,wape,mase,rmsse,r2,bias
+repro_legacy_2025_seasonal_naive,legacy_2025_observation_availability_fixed_origin,seasonal_naive,target_original_with_missing,2008-01,2024-12,2025-01,2025-12,a7885fb0e1ed5de7d64ae180733effc0baebad1e4842ef6bca467466b5b538e5,12.0,156550.41666666666,184753.21537368887,3.279637765784286,3.3455865082132097,2.939129424233807,0.24666279133763153,0.1658464139357303,0.9914064090666596,-140384.08333333334

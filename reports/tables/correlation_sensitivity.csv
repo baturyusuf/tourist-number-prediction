@@ -1,0 +1,10 @@
+target,candidate,transformation,paired_observations,pearson_correlation,interpretation_guardrail
+target_original_with_missing,reer_cpi_developed_2025eq100,level,213,-0.3002339550515842,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,ea_hicp_air_passenger_yoy_pct,level,213,0.1983564024686632,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,search_interest_legacy_unverified,level,213,0.13718146478793444,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,reer_cpi_developed_2025eq100,first_difference,211,-0.0870282616467841,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,ea_hicp_air_passenger_yoy_pct,first_difference,211,0.08299286151443426,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,search_interest_legacy_unverified,first_difference,211,0.3544145696033986,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,reer_cpi_developed_2025eq100,seasonal_difference_12,198,0.05786719841204062,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,ea_hicp_air_passenger_yoy_pct,seasonal_difference_12,198,0.4400179672306852,"descriptive only; not predictive, inferential, or causal evidence"
+target_original_with_missing,search_interest_legacy_unverified,seasonal_difference_12,198,0.4436460000040097,"descriptive only; not predictive, inferential, or causal evidence"

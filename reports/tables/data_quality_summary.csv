@@ -1,0 +1,18 @@
+check,value
+path,C:\Users\Yusuf\Documents\GitHub\tourist-number-prediction\data\raw\turizm_kisi_Reel_HICP_Trend.csv
+sha256,a7885fb0e1ed5de7d64ae180733effc0baebad1e4842ef6bca467466b5b538e5
+byte_count,6824
+encoding,utf-8-sig
+delimiter,"','"
+row_count,216
+column_count,5
+start,2008-01
+end,2025-12
+expected_months,216
+missing_months,0
+duplicate_dates,0
+missing_target,3
+missing_target_dates,"2020-04, 2020-05, 2020-06"
+non_numeric_values,0
+non_positive_targets,0
+unexpected_columns,

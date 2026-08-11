@@ -35,7 +35,7 @@ from tourism_forecasting.metrics import (
     winkler_score,
 )
 from tourism_forecasting.paths import resolve_from_root
-from tourism_forecasting.reporting import configure_plotting
+from tourism_forecasting.reporting import configure_plotting, normalize_svg
 
 BENCHMARK_MODEL = "seasonal_naive"
 FORECAST_FILENAME = "rolling_origin_forecasts.csv"
@@ -412,6 +412,7 @@ def _save_publication_figure(fig: plt.Figure, stem: Path) -> tuple[Path, Path]:
         bbox_inches="tight",
         metadata={"Creator": "tourism-forecasting", "Date": None},
     )
+    normalize_svg(svg)
     plt.close(fig)
     return png, svg
 

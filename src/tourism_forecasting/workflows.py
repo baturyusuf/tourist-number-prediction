@@ -86,7 +86,7 @@ def reproduction_workflow() -> list[Path]:
             "runtime_seconds": None,
             "artifact_paths": [
                 {
-                    "path": str(path.relative_to(resolve_from_root("."))),
+                    "path": path.relative_to(resolve_from_root(".")).as_posix(),
                     "sha256": sha256_file(path),
                 }
                 for path in artifacts
@@ -241,7 +241,9 @@ Protocols are separate; values from incompatible tasks must not be compared as o
                     )
                 },
                 "random_seed": int(project["seed"]),
-                "per_fold_metrics_path": str(artifacts[0].relative_to(resolve_from_root("."))),
+                "per_fold_metrics_path": artifacts[0]
+                .relative_to(resolve_from_root("."))
+                .as_posix(),
                 "aggregate_metrics": aggregate[0] if aggregate else {},
                 "seasonal_naive_skill": (
                     float(aggregate[0]["pooled_paired_mae_skill_vs_seasonal_naive"])
@@ -252,7 +254,7 @@ Protocols are separate; values from incompatible tasks must not be compared as o
                 "runtime_seconds": float(group["runtime_seconds"].sum()),
                 "artifact_paths": [
                     {
-                        "path": str(path.relative_to(resolve_from_root("."))),
+                        "path": path.relative_to(resolve_from_root(".")).as_posix(),
                         "sha256": sha256_file(path),
                     }
                     for path in artifacts

@@ -48,8 +48,22 @@ def save_figure(fig: plt.Figure, stem: str | Path) -> tuple[Path, Path]:
         bbox_inches="tight",
         metadata={"Creator": "tourism-forecasting", "Date": None},
     )
+    normalize_svg(svg)
     plt.close(fig)
     return png, svg
+
+
+def normalize_svg(path: str | Path) -> Path:
+    """Remove backend-inserted trailing spaces while preserving deterministic SVG content."""
+
+    destination = Path(path)
+    text = destination.read_text(encoding="utf-8")
+    destination.write_text(
+        "\n".join(line.rstrip() for line in text.splitlines()) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return destination
 
 
 def build_core_audit_artifacts(

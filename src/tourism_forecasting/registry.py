@@ -129,7 +129,9 @@ def new_experiment_id(prefix: str = "exp") -> str:
 
 
 def _serialize(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
+    if value is None:
+        return ""
+    if isinstance(value, str | int | float | bool):
         return value
     return json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
 

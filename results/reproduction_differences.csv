@@ -1,0 +1,7 @@
+claim,reported_or_preliminary,reproduced,absolute_difference,status
+seasonal_naive_2025_rmse,184753.0,184753.21537368887,0.2153736888722051,reproduced_with_rounding
+seasonal_naive_2025_mae,156550.0,156550.41666666666,0.4166666666569654,reproduced_with_rounding
+seasonal_naive_2025_mape,3.28,3.279637765784286,-0.000362234215713908,reproduced_with_rounding
+seasonal_naive_2025_r2,0.9914,0.9914064090666596,6.4090666596072765e-06,reproduced_with_rounding
+manuscript_best_sarimax_mape,4.01,,,pending_exact_configuration_reconstruction
+manuscript_lagged_xgboost_mape,5.46,,,pending_exact_configuration_reconstruction
